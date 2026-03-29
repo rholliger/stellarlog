@@ -3,6 +3,7 @@ Weather service using OpenWeatherMap.
 Free tier: 60 calls/min, 1,000,000 calls/month.
 """
 
+from typing import Optional
 import os
 import httpx
 from datetime import date
@@ -12,7 +13,7 @@ AESCH_LAT = 47.468
 AESCH_LON = 8.066
 
 
-async def get_weather_for_date(target_date: date) -> dict | None:
+async def get_weather_for_date(target_date: date) -> Optional[dict]:
     """
     Fetches current weather for Aesch ZH.
     Falls back to forecast if historical not available.
