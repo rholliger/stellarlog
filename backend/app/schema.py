@@ -199,8 +199,9 @@ class MoonResponse(BaseModel):
     date: str
     illumination: float       # 0.0 - 1.0
     phase_name: str          # 'New Moon', 'Waxing Crescent', etc.
-    rise: Optional[str]     # HH:MM
-    set: Optional[str]       # HH:MM
+    phase_angle_deg: Optional[float] = None
+    rise: Optional[str] = None     # HH:MM
+    set: Optional[str] = None       # HH:MM
 
 
 class VisibilityResponse(BaseModel):
