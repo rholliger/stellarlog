@@ -236,7 +236,7 @@ export default function NewObservation() {
   }, [form.date])
 
   const saveMutation = useMutation({
-    mutationFn: (data: Partial typeof form) =>
+    mutationFn: (data: Partial<typeof form>) =>
       isEdit ? updateObservation(Number(id), data) : createObservation(data),
     onSuccess: (obs) => {
       queryClient.invalidateQueries({ queryKey: ['observations'] })
