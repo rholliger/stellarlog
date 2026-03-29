@@ -6,7 +6,7 @@ import sqlite3
 from pathlib import Path
 from contextlib import contextmanager
 
-DB_PATH = Path(__file__).parent / "stellarlog.db"
+DB_PATH = Path(__file__).parent.parent / "stellarlog.db"
 
 
 def get_connection() -> sqlite3.Connection:

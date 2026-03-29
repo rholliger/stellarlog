@@ -7,7 +7,7 @@ import sqlite3
 import math
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "stellarlog.db"
+DB_PATH = Path(__file__).parent.parent / "stellarlog.db"
 
 # ---------------------------------------------------------------------------
 # Messier Catalog (all 110 objects)

@@ -27,7 +27,7 @@ from app.services import astronomy, weather, transcription
 # ---------------------------------------------------------------------------
 
 BASE_DIR = Path(__file__).parent.parent
-DATA_DIR = BASE_DIR / "data"
+DATA_DIR = Path(__file__).parent.parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
 PHOTOS_DIR = DATA_DIR / "photos"
 VOICE_DIR = DATA_DIR / "voice"
