@@ -5,11 +5,120 @@
 :root {
   --background: 220 20% 6%;
   --foreground: 210 40% 96%;
-  --border: 215 20% 18%;
+  --muted: 220 15% 12%;
+  --border: 215 15% 22%;
+  --primary: 210 80% 55%;
 }
 
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Global form inputs */
+input[type="text"],
+input[type="date"],
+input[type="time"],
+input[type="email"],
+input[type="search"],
+textarea,
+select {
+  background-color: hsl(220 15% 11%) !important;
+  border: 1px solid hsl(215 15% 22%) !important;
+  color: hsl(210 40% 92%) !important;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="text"]:focus,
+input[type="date"]:focus,
+input[type="time"]:focus,
+input[type="email"]:focus,
+input[type="search"]:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: hsl(210 80% 55%) !important;
+  box-shadow: 0 0 0 2px hsl(210 80% 55% / 0.2);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: hsl(220 10% 45%) !important;
+}
+
+/* Date input calendar icon — force light on dark */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+  cursor: pointer;
+}
+
+/* Primary button */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background-color: hsl(210 80% 55%);
+  color: white;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.15s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background-color: hsl(210 80% 48%);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Secondary / ghost button */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background-color: transparent;
+  color: hsl(210 40% 70%);
+  font-weight: 500;
+  font-size: 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid hsl(215 15% 22%);
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background-color: hsl(220 15% 12%);
+  color: hsl(210 40% 92%);
+  border-color: hsl(215 15% 30%);
+}
+
+/* Danger button */
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background-color: hsl(0 60% 45% / 0.15);
+  color: hsl(0 70% 65%);
+  font-weight: 500;
+  font-size: 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid hsl(0 60% 45% / 0.3);
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.btn-danger:hover {
+  background-color: hsl(0 60% 45% / 0.25);
 }

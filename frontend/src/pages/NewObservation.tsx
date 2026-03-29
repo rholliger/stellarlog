@@ -10,10 +10,8 @@ import { Target } from '@/lib/api'
 import { format } from 'date-fns'
 import {
   Mic, MicOff, Upload, X, Star, MapPin, Calendar,
-  Cloud, Moon as MoonIcon, Camera, Save, Loader2,
+  Cloud, Moon as MoonIcon, Camera, Save, Loader2, Image,
 } from 'lucide-react'
-
-const AESH_LOCATION = { lat: 47.468, lon: 8.066 }
 
 function TargetSelector({
   value,
@@ -38,7 +36,7 @@ function TargetSelector({
   )
 
   const selected = targets?.find(
-    t => t.catalog_id === value || `${t.source_catalog} ${t.catalog_id}` === value
+    t => `${t.source_catalog || ''} ${t.catalog_id}`.trim() === value
   )
 
   return (
@@ -53,14 +51,14 @@ function TargetSelector({
           setOpen(true)
         }}
         placeholder="Search M42, NGC 224, Caldwell 1..."
-        className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+        className="w-full"
       />
       {open && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-xl max-h-60 overflow-y-auto">
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[hsl(220_15%_11%)] border border-[hsl(215_15%_22%)] rounded-lg shadow-xl max-h-60 overflow-y-auto">
           {(filtered || []).slice(0, 50).map(t => (
             <button
               key={`${t.source_catalog}-${t.catalog_id}`}
-              className="w-full text-left px-3 py-2 text-sm hover:bg-primary/10 flex items-center justify-between"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-[hsl(220_15%_18%)] flex items-center justify-between"
               onClick={() => {
                 onChange(`${t.source_catalog || ''} ${t.catalog_id}`.trim(), t.name || t.common_name || t.catalog_id)
                 setOpen(false)
@@ -68,11 +66,11 @@ function TargetSelector({
               }}
             >
               <span>
-                <span className="font-mono text-primary">{t.catalog_id}</span>{' '}
+                <span className="font-mono text-blue-400 mr-1">{t.catalog_id}</span>
                 <span>{t.name || t.common_name}</span>
-                {t.type && <span className="text-muted-foreground ml-2 text-xs">{t.type}</span>}
+                {t.type && <span className="text-gray-500 ml-2 text-xs">{t.type}</span>}
               </span>
-              <span className="text-xs text-muted-foreground">{t.constellation}</span>
+              <span className="text-xs text-gray-500">{t.constellation}</span>
             </button>
           ))}
         </div>
@@ -122,7 +120,7 @@ function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) 
       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
         recording
           ? 'bg-red-500/20 text-red-400 border border-red-500/40'
-          : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+          : 'bg-[hsl(220_15%_14%)] hover:bg-[hsl(220_15%_18%)] text-gray-400 border border-[hsl(215_15%_22%)]'
       }`}
     >
       {recording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -131,13 +129,17 @@ function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) 
   )
 }
 
-function PhotoDropzone({ observationId, onUploaded }: {
+function PhotoDropzone({ observationId, onUploaded, uploadedFiles }: {
   observationId: number | null
   onUploaded: () => void
+  uploadedFiles: string[]
 }) {
   const [uploading, setUploading] = useState(false)
   const onDrop = useCallback(async (files: File[]) => {
-    if (!observationId) return
+    if (!observationId) {
+      alert('Save the session first to upload photos.')
+      return
+    }
     setUploading(true)
     for (const file of files) {
       await uploadPhoto(observationId, file)
@@ -153,37 +155,63 @@ function PhotoDropzone({ observationId, onUploaded }: {
   })
 
   return (
-    <div
-      {...getRootProps()}
-      className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-        isDragActive ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/40'
-      } ${!observationId ? 'opacity-50 cursor-not-allowed' : ''}`}
-    >
-      <input {...getInputProps()} />
-      <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">
-        {uploading ? 'Uploading...' : isDragActive ? 'Drop photos here' : 'Drag & drop photos, or click to select'}
-      </p>
-      <p className="text-xs text-muted-foreground mt-1">JPG, PNG, RAW — save the session first to enable upload</p>
+    <div>
+      <label className="flex items-center gap-1.5 text-sm font-medium mb-2">
+        <Image className="w-4 h-4 text-gray-500" />
+        Photos
+        {uploadedFiles.length > 0 && (
+          <span className="text-xs text-gray-500 font-normal">({uploadedFiles.length} uploaded)</span>
+        )}
+      </label>
+      <div
+        {...getRootProps()}
+        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+          !observationId
+            ? 'opacity-50 cursor-not-allowed border-gray-700'
+            : isDragActive
+              ? 'border-blue-500 bg-blue-500/5'
+              : 'border-[hsl(215_15%_22%)] hover:border-[hsl(215_15%_30%)] bg-[hsl(220_15%_11%)]'
+        }`}
+      >
+        <input {...getInputProps()} />
+        <Upload className="w-8 h-8 mx-auto mb-2 text-gray-500" />
+        <p className="text-sm text-gray-500">
+          {uploading ? 'Uploading...' : isDragActive ? 'Drop photos here' : 'Drag & drop or click to select'}
+        </p>
+        <p className="text-xs text-gray-600 mt-1">JPG, PNG, RAW — {observationId ? 'ready to upload' : 'save session first'}</p>
+      </div>
+      {uploadedFiles.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {uploadedFiles.map(f => (
+            <span key={f} className="text-xs bg-[hsl(220_15%_14%)] px-2 py-1 rounded text-gray-400 flex items-center gap-1">
+              <Image className="w-3 h-3" /> {f}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
 function SeeingRating({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const labels = ['', 'Poor', 'Below Average', 'Average', 'Good', 'Excellent']
   return (
     <div>
-      <label className="block text-sm font-medium mb-1">Seeing</label>
-      <div className="flex gap-1">
-        {[1, 2, 3, 4, 5].map(n => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => onChange(n)}
-            className={`text-lg transition-colors ${n <= value ? 'text-yellow-400' : 'text-muted-foreground/30'}`}
-          >
-            ★
-          </button>
-        ))}
+      <label className="block text-sm font-medium mb-2">Sky Conditions</label>
+      <div className="flex items-center gap-3">
+        <div className="flex gap-1">
+          {[1, 2, 3, 4, 5].map(n => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => onChange(n)}
+              className={`text-xl transition-colors ${n <= value ? 'text-yellow-400' : 'text-gray-700'}`}
+            >
+              ★
+            </button>
+          ))}
+        </div>
+        <span className="text-sm text-gray-400">{labels[value] || '—'}</span>
       </div>
     </div>
   )
@@ -206,6 +234,8 @@ export default function NewObservation() {
     gear: '',
   })
   const [moonInfo, setMoonInfo] = useState<{ illumination: number; phase_name: string } | null>(null)
+  const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([])
+  const [draftId, setDraftId] = useState<number | null>(null)
 
   const { data: existing } = useQuery({
     queryKey: ['observation', id],
@@ -225,6 +255,8 @@ export default function NewObservation() {
         location: existing.location,
         gear: existing.gear || '',
       })
+      setDraftId(existing.id)
+      setUploadedPhotos(existing.photos.map((p: any) => p.original_name || p.filename))
     }
   }, [existing])
 
@@ -240,6 +272,7 @@ export default function NewObservation() {
       isEdit ? updateObservation(Number(id), data) : createObservation(data),
     onSuccess: (obs) => {
       queryClient.invalidateQueries({ queryKey: ['observations'] })
+      if (!draftId) setDraftId(obs.id)
       navigate(`/observations/${obs.id}`)
     },
   })
@@ -262,22 +295,30 @@ export default function NewObservation() {
     setForm(f => ({ ...f, notes_text: f.notes_text ? `${f.notes_text}\n${text}` : text }))
   }
 
+  const handlePhotosUploaded = () => {
+    if (draftId) {
+      queryClient.invalidateQueries({ queryKey: ['observation', draftId] })
+    }
+  }
+
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">{isEdit ? 'Edit Session' : 'New Observation Session'}</h1>
+      <h1 className="text-2xl font-bold mb-6">
+        {isEdit ? 'Edit Session' : 'New Observation Session'}
+      </h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Date & Time */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="flex items-center gap-1.5 text-sm font-medium mb-1">
-              <Calendar className="w-4 h-4 text-muted-foreground" /> Date
+              <Calendar className="w-4 h-4 text-gray-500" /> Date
             </label>
             <input
               type="date"
               value={form.date}
               onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-              className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full"
               required
             />
           </div>
@@ -287,7 +328,7 @@ export default function NewObservation() {
               type="time"
               value={form.time}
               onChange={e => setForm(f => ({ ...f, time: e.target.value }))}
-              className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full"
               required
             />
           </div>
@@ -295,7 +336,7 @@ export default function NewObservation() {
 
         {/* Moon indicator */}
         {moonInfo && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+          <div className="flex items-center gap-2 text-sm text-gray-400 bg-[hsl(220_15%_11%)] border border-[hsl(215_15%_18%)] rounded-lg px-3 py-2">
             <MoonIcon className="w-4 h-4" />
             Moon: {moonInfo.phase_name} ({Math.round(moonInfo.illumination * 100)}% illuminated)
           </div>
@@ -310,19 +351,19 @@ export default function NewObservation() {
         {/* Notes */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="text-sm font-medium">Notes</label>
+            <label className="text-sm font-medium">Field Notes</label>
             <VoiceInput onTranscript={handleVoiceTranscript} />
           </div>
           <textarea
             value={form.notes_text}
             onChange={e => setForm(f => ({ ...f, notes_text: e.target.value }))}
-            placeholder="What did you observe? How did it go? Equipment used? Conditions?"
+            placeholder="What did you observe? How did the session go? Equipment used? Conditions?"
             rows={5}
-            className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
+            className="w-full"
           />
         </div>
 
-        {/* Seeing */}
+        {/* Sky Conditions */}
         <SeeingRating
           value={form.seeing_rating}
           onChange={v => setForm(f => ({ ...f, seeing_rating: v }))}
@@ -330,52 +371,53 @@ export default function NewObservation() {
 
         {/* Gear */}
         <div>
-          <label className="block text-sm font-medium mb-1">Gear / Equipment</label>
+          <label className="flex items-center gap-1.5 text-sm font-medium mb-1">
+            <Camera className="w-4 h-4 text-gray-500" /> Equipment
+          </label>
           <input
             type="text"
             value={form.gear}
             onChange={e => setForm(f => ({ ...f, gear: e.target.value }))}
             placeholder="e.g. Seestar S50, 200mm f/5, ISO 1600, 60s"
-            className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="w-full"
           />
         </div>
 
         {/* Location */}
         <div>
           <label className="flex items-center gap-1.5 text-sm font-medium mb-1">
-            <MapPin className="w-4 h-4 text-muted-foreground" /> Location
+            <MapPin className="w-4 h-4 text-gray-500" /> Location
           </label>
           <input
             type="text"
             value={form.location}
             onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
             placeholder="Aesch ZH"
-            className="w-full px-3 py-2 bg-muted border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="w-full"
           />
         </div>
 
-        {/* Photo dropzone (only after save) */}
-        {saveMutation.data && (
-          <PhotoDropzone
-            observationId={saveMutation.data.id}
-            onUploaded={() => queryClient.invalidateQueries({ queryKey: ['observation', saveMutation.data.id] })}
-          />
-        )}
+        {/* Photo upload */}
+        <PhotoDropzone
+          observationId={draftId}
+          onUploaded={handlePhotosUploaded}
+          uploadedFiles={uploadedPhotos}
+        />
 
         {/* Submit */}
-        <div className="flex items-center gap-3 pt-2">
+        <div className="flex items-center gap-3 pt-2 border-t border-[hsl(215_15%_18%)]">
           <button
             type="submit"
             disabled={saveMutation.isPending}
-            className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 rounded-lg font-medium transition-colors disabled:opacity-50"
+            className="btn-primary"
           >
             {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {isEdit ? 'Save Changes' : 'Save Session'}
           </button>
           <button
             type="button"
-            onClick={() => navigate(-1)}
-            className="px-5 py-2.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => navigate(isEdit ? `/observations/${id}` : '/')}
+            className="btn-secondary"
           >
             Cancel
           </button>
