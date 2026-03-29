@@ -6,12 +6,92 @@ import {
   getObservation, createObservation, updateObservation,
   uploadPhoto, getAllTargets, transcribe, getMoon,
 } from '@/lib/api'
-import { Target } from '@/lib/api'
 import { format } from 'date-fns'
 import {
   Mic, MicOff, Upload, X, Star, MapPin, Calendar,
   Cloud, Moon as MoonIcon, Camera, Save, Loader2, Image,
 } from 'lucide-react'
+
+// Pre-defined common gear tags
+const GEAR_TAGS = [
+  'Seestar S50', 'Canon EOS R5', 'Nikon Z8', 'Sony A7 IV',
+  'William Optics GT81', 'Sky-Watcher EQ6-R', 'iOptron CEM40',
+  'ASI294MC Pro', 'ASI533MC Pro', 'ZWO ASI2600MC', 'UV/IR Cut Filter',
+  'Optolong L-Pro', 'IDAS D1', 'Dithering', 'Gain 121', 'Offset 50',
+  'ISO 1600', 'ISO 3200', '60s', '120s', '300s', 'Dark Frames',
+  'Flat Frames', 'Bias Frames',
+]
+
+function TagInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const selected = value ? value.split(',').map(s => s.trim()).filter(Boolean) : []
+
+  const filtered = GEAR_TAGS.filter(
+    t => !selected.includes(t) && t.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const addTag = (tag: string) => {
+    const updated = [...selected, tag]
+    onChange(updated.join(', '))
+    setSearch('')
+    setOpen(false)
+  }
+
+  const removeTag = (tag: string) => {
+    onChange(selected.filter(t => t !== tag).join(', '))
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
+        {selected.map(tag => (
+          <span
+            key={tag}
+            className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/15 text-blue-300 text-xs rounded-full border border-blue-500/30"
+          >
+            {tag}
+            <button
+              type="button"
+              onClick={() => removeTag(tag)}
+              className="hover:text-red-400 transition-colors"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+        {selected.length === 0 && (
+          <span className="text-xs text-gray-600">Click to add gear tags…</span>
+        )}
+      </div>
+      <div className="relative">
+        <input
+          type="text"
+          value={search}
+          onChange={e => { setSearch(e.target.value); setOpen(true }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          placeholder="Search or type gear..."
+          className="w-full"
+        />
+        {open && filtered.length > 0 && (
+          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[hsl(220_15%_11%)] border border-[hsl(215_15%_22%)] rounded-lg shadow-xl max-h-40 overflow-y-auto">
+            {filtered.map(tag => (
+              <button
+                key={tag}
+                type="button"
+                className="w-full text-left px-3 py-1.5 text-sm hover:bg-[hsl(220_15%_18%)] text-gray-300"
+                onMouseDown={() => addTag(tag)}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function TargetSelector({
   value,
@@ -50,7 +130,7 @@ function TargetSelector({
           setSearch(e.target.value)
           setOpen(true)
         }}
-        placeholder="Search M42, NGC 224, Caldwell 1..."
+        placeholder="Search M42, NGC 224, C1…"
         className="w-full"
       />
       {open && (
@@ -59,7 +139,7 @@ function TargetSelector({
             <button
               key={`${t.source_catalog}-${t.catalog_id}`}
               className="w-full text-left px-3 py-2 text-sm hover:bg-[hsl(220_15%_18%)] flex items-center justify-between"
-              onClick={() => {
+              onMouseDown={() => {
                 onChange(`${t.source_catalog || ''} ${t.catalog_id}`.trim(), t.name || t.common_name || t.catalog_id)
                 setOpen(false)
                 setSearch('')
@@ -67,10 +147,10 @@ function TargetSelector({
             >
               <span>
                 <span className="font-mono text-blue-400 mr-1">{t.catalog_id}</span>
-                <span>{t.name || t.common_name}</span>
-                {t.type && <span className="text-gray-500 ml-2 text-xs">{t.type}</span>}
+                <span className="text-gray-300">{t.name || t.common_name}</span>
+                {t.type && <span className="text-gray-600 ml-2 text-xs">{t.type}</span>}
               </span>
-              <span className="text-xs text-gray-500">{t.constellation}</span>
+              <span className="text-xs text-gray-600">{t.constellation}</span>
             </button>
           ))}
         </div>
@@ -129,63 +209,107 @@ function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) 
   )
 }
 
-function PhotoDropzone({ observationId, onUploaded, uploadedFiles }: {
+interface LocalPreview {
+  id: string
+  file: File
+  url: string
+  uploading: boolean
+}
+
+function PhotoDropzone({ observationId, onUploaded }: {
   observationId: number | null
   onUploaded: () => void
-  uploadedFiles: string[]
 }) {
-  const [uploading, setUploading] = useState(false)
-  const onDrop = useCallback(async (files: File[]) => {
-    if (!observationId) {
-      alert('Save the session first to upload photos.')
-      return
-    }
-    setUploading(true)
-    for (const file of files) {
+  const [previews, setPreviews] = useState<LocalPreview[]>([])
+
+  const uploadFile = useCallback(async (file: File, previewId: string) => {
+    if (!observationId) return
+    try {
       await uploadPhoto(observationId, file)
+      setPreviews(p => p.map(pv => pv.id === previewId ? { ...pv, uploading: false } : pv))
+      onUploaded()
+    } catch (err) {
+      console.error('Upload failed', err)
+      setPreviews(p => p.filter(pv => pv.id !== previewId))
     }
-    setUploading(false)
-    onUploaded()
   }, [observationId, onUploaded])
+
+  const onDrop = useCallback((files: File[]) => {
+    const newPreviews: LocalPreview[] = files.map(file => ({
+      id: Math.random().toString(36).slice(2),
+      file,
+      url: URL.createObjectURL(file),
+      uploading: false,
+    }))
+    setPreviews(p => [...p, ...newPreviews])
+
+    if (observationId) {
+      newPreviews.forEach(p => uploadFile(p.file, p.id))
+    }
+  }, [observationId, uploadFile])
+
+  // When observation is saved and we get an ID, upload all pending
+  useEffect(() => {
+    if (observationId) {
+      const pending = previews.filter(p => !p.uploading && !p.url.includes('observation'))
+      pending.forEach(p => uploadFile(p.file, p.id))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [observationId])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { 'image/*': [] },
-    disabled: !observationId,
   })
 
   return (
     <div>
       <label className="flex items-center gap-1.5 text-sm font-medium mb-2">
-        <Image className="w-4 h-4 text-gray-500" />
+        <Camera className="w-4 h-4 text-gray-500" />
         Photos
-        {uploadedFiles.length > 0 && (
-          <span className="text-xs text-gray-500 font-normal">({uploadedFiles.length} uploaded)</span>
+        {previews.length > 0 && (
+          <span className="text-xs text-gray-600 font-normal">({previews.length})</span>
         )}
       </label>
+
+      {/* Drop zone */}
       <div
         {...getRootProps()}
-        className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-          !observationId
-            ? 'opacity-50 cursor-not-allowed border-gray-700'
-            : isDragActive
-              ? 'border-blue-500 bg-blue-500/5'
-              : 'border-[hsl(215_15%_22%)] hover:border-[hsl(215_15%_30%)] bg-[hsl(220_15%_11%)]'
+        className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors ${
+          isDragActive
+            ? 'border-blue-500 bg-blue-500/5'
+            : 'border-[hsl(215_15%_22%)] hover:border-[hsl(215_15%_30%)] bg-[hsl(220_15%_11%)]'
         }`}
       >
         <input {...getInputProps()} />
-        <Upload className="w-8 h-8 mx-auto mb-2 text-gray-500" />
-        <p className="text-sm text-gray-500">
-          {uploading ? 'Uploading...' : isDragActive ? 'Drop photos here' : 'Drag & drop or click to select'}
+        <Upload className="w-6 h-6 mx-auto mb-1 text-gray-500" />
+        <p className="text-xs text-gray-500">
+          {isDragActive ? 'Drop photos here' : 'Drag & drop or click to select'}
         </p>
-        <p className="text-xs text-gray-600 mt-1">JPG, PNG, RAW — {observationId ? 'ready to upload' : 'save session first'}</p>
       </div>
-      {uploadedFiles.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-2">
-          {uploadedFiles.map(f => (
-            <span key={f} className="text-xs bg-[hsl(220_15%_14%)] px-2 py-1 rounded text-gray-400 flex items-center gap-1">
-              <Image className="w-3 h-3" /> {f}
-            </span>
+
+      {/* Thumbnail grid */}
+      {previews.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-3">
+          {previews.map(pv => (
+            <div key={pv.id} className="relative w-16 h-16 rounded-lg overflow-hidden border border-[hsl(215_15%_22%)]">
+              <img src={pv.url} alt="preview" className="w-full h-full object-cover" />
+              {pv.uploading && (
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                  <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  URL.revokeObjectURL(pv.url)
+                  setPreviews(p => p.filter(x => x.id !== pv.id))
+                }}
+                className="absolute top-0 right-0 p-0.5 bg-black/70 rounded-bl"
+              >
+                <X className="w-3 h-3 text-white" />
+              </button>
+            </div>
           ))}
         </div>
       )}
@@ -234,7 +358,6 @@ export default function NewObservation() {
     gear: '',
   })
   const [moonInfo, setMoonInfo] = useState<{ illumination: number; phase_name: string } | null>(null)
-  const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([])
   const [draftId, setDraftId] = useState<number | null>(null)
 
   const { data: existing } = useQuery({
@@ -256,11 +379,9 @@ export default function NewObservation() {
         gear: existing.gear || '',
       })
       setDraftId(existing.id)
-      setUploadedPhotos(existing.photos.map((p: any) => p.original_name || p.filename))
     }
   }, [existing])
 
-  // Fetch moon info when date changes
   useEffect(() => {
     if (form.date) {
       getMoon(form.date).then(m => setMoonInfo({ illumination: m.illumination, phase_name: m.phase_name }))
@@ -295,12 +416,6 @@ export default function NewObservation() {
     setForm(f => ({ ...f, notes_text: f.notes_text ? `${f.notes_text}\n${text}` : text }))
   }
 
-  const handlePhotosUploaded = () => {
-    if (draftId) {
-      queryClient.invalidateQueries({ queryKey: ['observation', draftId] })
-    }
-  }
-
   return (
     <div className="max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">
@@ -312,7 +427,8 @@ export default function NewObservation() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="flex items-center gap-1.5 text-sm font-medium mb-1">
-              <Calendar className="w-4 h-4 text-gray-500" /> Date
+              <Calendar className="w-4 h-4 text-gray-500" />
+              Date
             </label>
             <input
               type="date"
@@ -323,7 +439,12 @@ export default function NewObservation() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Time (local)</label>
+            <label className="flex items-center gap-1.5 text-sm font-medium mb-1">
+              <span className="w-4 h-4 flex items-center justify-center text-gray-500">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </span>
+              Time
+            </label>
             <input
               type="time"
               value={form.time}
@@ -334,15 +455,15 @@ export default function NewObservation() {
           </div>
         </div>
 
-        {/* Moon indicator */}
+        {/* Moon */}
         {moonInfo && (
           <div className="flex items-center gap-2 text-sm text-gray-400 bg-[hsl(220_15%_11%)] border border-[hsl(215_15%_18%)] rounded-lg px-3 py-2">
-            <MoonIcon className="w-4 h-4" />
+            <MoonIcon className="w-4 h-4 text-gray-500" />
             Moon: {moonInfo.phase_name} ({Math.round(moonInfo.illumination * 100)}% illuminated)
           </div>
         )}
 
-        {/* Target selector */}
+        {/* Target */}
         <TargetSelector
           value={form.target_catalog_id}
           onChange={(id, name) => setForm(f => ({ ...f, target_catalog_id: id, target_name: name }))}
@@ -369,24 +490,23 @@ export default function NewObservation() {
           onChange={v => setForm(f => ({ ...f, seeing_rating: v }))}
         />
 
-        {/* Gear */}
+        {/* Equipment */}
         <div>
           <label className="flex items-center gap-1.5 text-sm font-medium mb-1">
-            <Camera className="w-4 h-4 text-gray-500" /> Equipment
+            <Camera className="w-4 h-4 text-gray-500" />
+            Equipment
           </label>
-          <input
-            type="text"
+          <TagInput
             value={form.gear}
-            onChange={e => setForm(f => ({ ...f, gear: e.target.value }))}
-            placeholder="e.g. Seestar S50, 200mm f/5, ISO 1600, 60s"
-            className="w-full"
+            onChange={v => setForm(f => ({ ...f, gear: v }))}
           />
         </div>
 
         {/* Location */}
         <div>
           <label className="flex items-center gap-1.5 text-sm font-medium mb-1">
-            <MapPin className="w-4 h-4 text-gray-500" /> Location
+            <MapPin className="w-4 h-4 text-gray-500" />
+            Location
           </label>
           <input
             type="text"
@@ -397,15 +517,16 @@ export default function NewObservation() {
           />
         </div>
 
-        {/* Photo upload */}
+        {/* Photos */}
         <PhotoDropzone
           observationId={draftId}
-          onUploaded={handlePhotosUploaded}
-          uploadedFiles={uploadedPhotos}
+          onUploaded={() => {
+            if (draftId) queryClient.invalidateQueries({ queryKey: ['observation', draftId] })
+          }}
         />
 
         {/* Submit */}
-        <div className="flex items-center gap-3 pt-2 border-t border-[hsl(215_15%_18%)]">
+        <div className="flex items-center gap-3 pt-4 border-t border-[hsl(215_15%_18%)]">
           <button
             type="submit"
             disabled={saveMutation.isPending}

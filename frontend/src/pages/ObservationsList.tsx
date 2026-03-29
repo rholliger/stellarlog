@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { listObservations } from '@/lib/api'
 import { format } from 'date-fns'
-import { Moon, Cloud, Image, ChevronRight, Search, Telescope } from 'lucide-react'
+import { Moon, Cloud, Image, ChevronRight, Search, Telescope, Star } from 'lucide-react'
 
 function MoonBadge({ phase }: { phase: number | null }) {
   if (!phase) return null
@@ -33,6 +33,7 @@ function WeatherBadge({ weatherJson }: { weatherJson: string | null }) {
 
 export default function ObservationsList() {
   const [filter, setFilter] = useState('')
+  const navigate = useNavigate()
   const { data: observations, isLoading } = useQuery({
     queryKey: ['observations'],
     queryFn: () => listObservations({ limit: 100 }),
@@ -48,10 +49,18 @@ export default function ObservationsList() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Observation Journal</h1>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Journal</h1>
+          <Link
+            to="/"
+            className="flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+          >
+            <Star className="w-4 h-4" /> Tonight's Sky
+          </Link>
+        </div>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             type="text"
             placeholder="Filter observations..."

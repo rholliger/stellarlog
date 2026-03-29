@@ -8,13 +8,13 @@ import TonightSky from './pages/TonightSky'
 function NavBar() {
   const location = useLocation()
   const links = [
-    { to: '/tonight', label: 'Tonight', icon: Star },
-    { to: '/', label: 'Journal', icon: List },
+    { to: '/', label: 'Tonight', icon: Star },
+    { to: '/journal', label: 'Journal', icon: List },
     { to: '/new', label: 'New Session', icon: Plus },
   ]
   return (
-    <nav className="border-b border-border px-4 py-3 flex items-center gap-6">
-      <Link to="/tonight" className="flex items-center gap-2 font-bold text-lg">
+    <nav className="border-b border-[hsl(215_15%_18%)] px-4 py-3 flex items-center gap-6">
+      <Link to="/" className="flex items-center gap-2 font-bold text-lg">
         <Telescope className="w-5 h-5" />
         StellarLog
       </Link>
@@ -24,8 +24,8 @@ function NavBar() {
           to={to}
           className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md transition-colors ${
             location.pathname === to
-              ? 'bg-primary/20 text-primary'
-              : 'text-muted-foreground hover:text-foreground'
+              ? 'bg-blue-500/20 text-blue-400'
+              : 'text-gray-500 hover:text-gray-300'
           }`}
         >
           <Icon className="w-4 h-4" />
@@ -39,12 +39,12 @@ function NavBar() {
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-background text-foreground">
+      <div className="min-h-screen bg-[hsl(220_20%_6%)] text-gray-100">
         <NavBar />
         <main className="max-w-5xl mx-auto px-4 py-6">
           <Routes>
-            <Route path="/tonight" element={<TonightSky />} />
-            <Route path="/" element={<ObservationsList />} />
+            <Route path="/" element={<TonightSky />} />
+            <Route path="/journal" element={<ObservationsList />} />
             <Route path="/new" element={<NewObservation />} />
             <Route path="/observations/:id" element={<ObservationDetail />} />
             <Route path="/observations/:id/edit" element={<NewObservation />} />
