@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field
-import sqlite_vec  # noqa: F401 - needed for SQLite vec extension
 
 # ---------------------------------------------------------------------------
 # Database schema (using Drizzle + SQLite)
