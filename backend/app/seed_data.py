@@ -422,9 +422,12 @@ def seed(db_path: str = str(DB_PATH)) -> None:
         )
 
     for row in CALDWELL_DATA:
+        # Caldwell rows: (catalog_id, name, type, constellation, ra_hours, dec_deg, magnitude, description)
+        # Schema: (catalog_id, name, common_name, type, ra_hours, dec_deg, constellation, magnitude, description)
+        # Insert None for common_name
         cur.execute(
             "INSERT OR IGNORE INTO caldwell (catalog_id, name, common_name, type, ra_hours, dec_deg, constellation, magnitude, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            row,
+            (row[0], row[1], None, row[2], row[4], row[5], row[3], row[6], row[7]),
         )
 
     for row in NGC_FLAGS_DATA:
