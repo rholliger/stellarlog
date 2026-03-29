@@ -281,15 +281,29 @@ def search_targets(q: str = Query(..., min_length=1)):
     pattern = f"%{q}%"
     results = []
     with get_cursor() as cur:
-        for table in ["messier", "caldwell", "ngc_flags"]:
-            cur.execute(
-                f"SELECT *, '{table}' as source FROM {table} WHERE catalog_id LIKE ? OR name LIKE ? OR common_name LIKE ? LIMIT 20",
-                (pattern, pattern, pattern),
-            )
-            for row in cur.fetchall():
-                d = dict_from_row(row)
-                d["catalog_id"] = d.get("catalog_id") or d.get("catalog_id")
-                results.append(_target_row_to_model(row))
+        # Messier: no common_name column
+        cur.execute(
+            "SELECT *, 'messier' as source FROM messier WHERE catalog_id LIKE ? OR name LIKE ? OR constellation LIKE ? LIMIT 20",
+            (pattern, pattern, pattern),
+        )
+        for row in cur.fetchall():
+            results.append(_target_row_to_model(row))
+
+        # Caldwell: has common_name column
+        cur.execute(
+            "SELECT *, 'caldwell' as source FROM caldwell WHERE catalog_id LIKE ? OR name LIKE ? OR common_name LIKE ? OR constellation LIKE ? LIMIT 20",
+            (pattern, pattern, pattern, pattern),
+        )
+        for row in cur.fetchall():
+            results.append(_target_row_to_model(row))
+
+        # NGC: no common_name column
+        cur.execute(
+            "SELECT *, 'ngc' as source FROM ngc_flags WHERE catalog_id LIKE ? OR name LIKE ? OR constellation LIKE ? LIMIT 20",
+            (pattern, pattern, pattern),
+        )
+        for row in cur.fetchall():
+            results.append(_target_row_to_model(row))
 
     return results
 
