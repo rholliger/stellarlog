@@ -68,7 +68,7 @@ function TagInput({ value, onChange }: { value: string; onChange: (v: string) =>
         <input
           type="text"
           value={search}
-          onChange={e => { setSearch(e.target.value); setOpen(true }}
+          onChange={e => { setSearch(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           placeholder="Search or type gear..."
