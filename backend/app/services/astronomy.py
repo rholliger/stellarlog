@@ -1,86 +1,42 @@
 """
-Astronomy service: moon phase, DSO visibility from Aesch ZH.
-Location: Aesch ZH — lat=47.468°N, lon=8.066°E, elevation=432m
-Uses skyfield for position calculations.
+Astronomy service using ephem (no external downloads needed).
+All planetary/lunar data is built into the library.
+Location: Aesch ZH — lat=47.468°N, lon=8.066°E
 """
 
-from datetime import datetime, date, time as dt_time
-from skyfield import api, almanac
-from skyfield.api import Topos, Timescale
+import ephem
 import math
+from datetime import date, datetime
 
-# Aesch ZH coordinates
-LAT = 47.468
-LON = 8.066
-ELEVATION_M = 432
+# Observer for Aesch ZH
+OBSERVER_LAT = "47.468"
+OBSERVER_LON = "8.066"
+OBSERVER_ELEV = 432  # meters
 
-# Load ephemeris — downloads and caches to ~/.skyfield/
-# Using JPL NAIF server directly (most reliable source)
-TS = api.load("https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de421.bsp")
+
+def _observer_for(dt: datetime) -> ephem.Observer:
+    o = ephem.Observer()
+    o.lat = OBSERVER_LAT
+    o.lon = OBSERVER_LON
+    o.elevation = OBSERVER_ELEV
+    o.date = dt
+    o.pressure = 0  # disable refraction correction
+    return o
 
 
 def get_moon_phase(target_date: date) -> dict:
     """
     Returns moon illumination and phase name for a given date.
     """
-    # Use pyephem-style calculation via skyfield
-    try:
-        from skyfield import almanac
-    except ImportError:
-        return _moon_phase_fallback(target_date)
+    dt = datetime(target_date.year, target_date.month, target_date.day, 21, 0, 0)
+    o = _observer_for(dt)
+    moon = ephem.Moon(o)
+    sun = ephem.Sun(o)
 
-    t = TS.utc(target_date.year, target_date.month, target_date.day, 12, 0, 0)
-    sun = TS["sun"]
-    moon = TS["moon"]
-    earth = TS["earth"]
+    # Illumination fraction (0.0 - 1.0)
+    illumination = moon.phase / 100.0
 
-    # Get apparent positions
-    astrometric = (earth + Topos(LAT, LON, elevation_m=ELEVATION_M)).at(t)
-    sun_app = sun.at(t).observe(earth).apparent()
-    moon_app = moon.at(t).observe(earth).apparent()
-
-    # Phase angle (simplified)
-    phase_angle = almanac.phase_angle(TS, t, body="moon")
-    illumination = almanac.fraction_illuminated(TS, t, "sun", "moon")
-
-    # Map phase angle to phase name
-    pa_deg = math.degrees(phase_angle)
-    if illumination < 0.02:
-        phase_name = "New Moon"
-    elif illumination < 0.25:
-        phase_name = "Waxing Crescent"
-    elif illumination < 0.45:
-        phase_name = "First Quarter"
-    elif illumination < 0.55:
-        phase_name = "Waxing Gibbous"
-    elif illumination < 0.75:
-        phase_name = "Full Moon"
-    elif illumination < 0.92:
-        phase_name = "Waning Gibbous"
-    elif illumination < 0.98:
-        phase_name = "Last Quarter"
-    else:
-        phase_name = "Waning Crescent"
-
-    return {
-        "illumination": round(float(illumination), 3),
-        "phase_name": phase_name,
-        "phase_angle_deg": round(pa_deg, 1),
-    }
-
-
-def _moon_phase_fallback(target_date: date) -> dict:
-    """
-    Fallback using simplified synodic month calculation.
-    Accurate to ~1 day in phase name.
-    """
-    # Days since known new moon (Jan 6 2000)
-    known_new = date(2000, 1, 6)
-    days = (target_date - known_new).days
-    synodic_month = 29.53059
-    phase = (days % synodic_month) / synodic_month
-    illumination = abs(1 - abs(phase * 2 - 1))
-
+    # Phase name
     if illumination < 0.02:
         phase_name = "New Moon"
     elif illumination < 0.25:
@@ -101,7 +57,7 @@ def _moon_phase_fallback(target_date: date) -> dict:
     return {
         "illumination": round(illumination, 3),
         "phase_name": phase_name,
-        "phase_angle_deg": round(phase * 360, 1),
+        "phase_angle_deg": round(moon.phase / 100 * 360, 1),
     }
 
 
@@ -114,64 +70,75 @@ def get_target_visibility(
 ) -> dict:
     """
     Calculate altitude, azimuth, rise/set times for a target from Aesch ZH.
+    Uses ephem's built-in star/planet positioning.
     """
-    # Build timescale for the target date (start at midnight)
-    year, month, day = target_date.year, target_date.month, target_date.day
+    dt = datetime(target_date.year, target_date.month, target_date.day, 12, 0, 0)
+    o = _observer_for(dt)
 
-    # Create time array for the full day (every 5 minutes)
-    times = TS.utc(year, month, day, list(range(24)), [0] * 24, [0.0] * 24)
-    observer = TS["earth"] + Topos(LAT, LON, elevation_m=ELEVATION_M)
+    # Build an ephem "star" with the given RA/Dec
+    target = ephem.FixedBody()
+    target._ra = str(target_ra_hours * 15)  # convert hours to degrees
+    target._dec = str(target_dec_deg)
+    target.compute(o)
 
-    # Calculate positions throughout the day
-    true_pos = observer.at(times).observe(TS["moon"]).apparent()
-    alt, az, _ = true_pos.altaz()
+    # Altitude and azimuth at noon as reference
+    altitude = math.degrees(target.alt)
+    azimuth = math.degrees(target.az) % 360
 
-    # Find max altitude and when it occurs
-    alt_values = alt.degrees
-    max_alt = max(alt_values)
-    max_idx = alt_values.index(max_alt)
-    max_time = times[max_idx]
+    # Find rise, transit, set times
+    try:
+        # `next_rising` returns an ephem.Date
+        rise_dt = o.next_rising(target)
+        transit_dt = o.next_transit(target)
+        set_dt = o.next_setting(target)
 
-    # Rise and set using skyfield search
-    # Simplified: find when alt goes above/below 0 (local horizon)
-    above_horizon = [a > 0 for a in alt_values]
-    is_visible = any(above_horizon)
+        def dt_from_ephem(edate):
+            # ephem.Date is days since 1899-12-31; convert to Python datetime
+            tt = edate.tuple()
+            return f"{tt[3]:02d}:{tt[4]:02d}"
 
-    # Find first rise and last set
-    rise_str, set_str = None, None
-    for i, above in enumerate(above_horizon):
-        if above and i > 0 and not above_horizon[i - 1]:
-            h, m = i, 0
-            rise_str = f"{h:02d}:{m:02d}"
-        if not above and i > 0 and above_horizon[i - 1]:
-            h, m = i, 0
-            set_str = f"{h:02d}:{m:02d}"
+        rise_str = dt_from_ephem(rise_dt)
+        transit_str = dt_from_ephem(transit_dt)
+        set_str = dt_from_ephem(set_dt)
+    except Exception:
+        rise_str = None
+        transit_str = None
+        set_str = None
 
-    # Transit (highest point)
-    transit_h = int(str(max_time).split(" ")[1].split("h")[0]) if "h" in str(max_time) else max_idx
-    transit_m = 0
-    transit_alt = round(max_alt, 1)
+    # Find best window (when altitude > 30°)
+    best_window = None
+    good_times = []
+    for hour in range(18, 24):
+        for minute in [0, 30]:
+            dt_check = datetime(target_date.year, target_date.month, target_date.day, hour, minute, 0)
+            o_check = _observer_for(dt_check)
+            target.compute(o_check)
+            if math.degrees(target.alt) > 30:
+                good_times.append(f"{hour:02d}:{minute:02d}")
+    if good_times:
+        best_window = f"{good_times[0]} - {good_times[-1]}"
 
-    # Best observation window: when altitude > 30°
-    good_alt_times = [i for i, a in enumerate(alt_values) if a > 30]
-    if good_alt_times:
-        start_h = good_alt_times[0]
-        end_h = good_alt_times[-1]
-        best_window = f"{start_h:02d}:00 - {end_h:02d}:00"
-    else:
-        best_window = None
+    # Max altitude: look at a few hours around transit
+    max_alt = altitude
+    for h in range(0, 24, 1):
+        dt_check = datetime(target_date.year, target_date.month, target_date.day, h, 0, 0)
+        o_check = _observer_for(dt_check)
+        target.compute(o_check)
+        alt = math.degrees(target.alt)
+        if alt > max_alt:
+            max_alt = alt
 
     return {
         "target_name": target_name,
         "catalog_id": catalog_id,
         "date": str(target_date),
-        "altitude": round(alt_values[12], 1),  # altitude at noon as reference
+        "altitude": round(altitude, 1),
         "max_altitude": round(max_alt, 1),
-        "transit_time": f"{transit_h:02d}:{transit_m:02d}",
-        "transit_altitude": transit_alt,
+        "transit_time": transit_str,
+        "transit_altitude": round(max_alt, 1),
         "rise_time": rise_str,
         "set_time": set_str,
-        "is_visible": is_visible,
+        "is_visible": altitude > 0,
         "best_window": best_window,
         "constellation": _ra_dec_to_constellation(target_ra_hours, target_dec_deg),
     }
@@ -181,7 +148,6 @@ def _ra_dec_to_constellation(ra_hours: float, dec_deg: float) -> str:
     """
     Rough constellation estimate based on RA/Dec.
     """
-    # Simple lookup table for major constellations
     constellations = [
         ("Orion", 5.5, -1),
         ("Taurus", 4.7, 19),
@@ -191,13 +157,19 @@ def _ra_dec_to_constellation(ra_hours: float, dec_deg: float) -> str:
         ("Sagittarius", 19.0, -25),
         ("Leo", 10.5, 13),
         ("Virgo", 12.5, 1),
-        (" Andromeda", 1.0, 41),
+        ("Andromeda", 1.0, 41),
         ("Cassiopeia", 1.0, 60),
         ("Cygnus", 20.5, 41),
         ("Perseus", 3.5, 48),
         ("Auriga", 6.0, 46),
         ("Lyra", 18.9, 36),
         ("Ursa Major", 11.0, 55),
+        ("Pisces", 0.5, 10),
+        ("Cetus", 1.5, -10),
+        ("Eridanus", 3.5, -20),
+        ("Pegasus", 22.5, 20),
+        ("Aquarius", 22.0, -10),
+        ("Capricornus", 20.5, -20),
     ]
 
     best_match = "Unknown"
@@ -219,9 +191,11 @@ def get_best_targets_this_week(targets: list[dict]) -> list[dict]:
     today = date.today()
     scored = []
     for t in targets:
+        if not t.get("ra_hours") or not t.get("dec_deg"):
+            continue
         vis = get_target_visibility(
-            t.get("ra_hours", 0),
-            t.get("dec_deg", 0),
+            t["ra_hours"],
+            t["dec_deg"],
             today,
             t.get("name", ""),
             t.get("catalog_id", ""),
