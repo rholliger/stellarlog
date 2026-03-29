@@ -14,8 +14,9 @@ LAT = 47.468
 LON = 8.066
 ELEVATION_M = 432
 
-# Load ephemeris (downloads and caches to ~/.skyfield)
-TS = api.load("https://celestialdata.s3.amazonaws.com/de421.bsp")
+# Load ephemeris — downloads and caches to ~/.skyfield/
+# Using JPL NAIF server directly (most reliable source)
+TS = api.load("https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de421.bsp")
 
 
 def get_moon_phase(target_date: date) -> dict:
