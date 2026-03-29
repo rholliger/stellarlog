@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useDropzone } from 'react-dropzone'
 import {
@@ -345,6 +345,7 @@ export default function NewObservation() {
   const { id } = useParams<{ id: string }>()
   const isEdit = Boolean(id)
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
 
   const [form, setForm] = useState({
@@ -537,7 +538,14 @@ export default function NewObservation() {
           </button>
           <button
             type="button"
-            onClick={() => navigate(isEdit ? `/observations/${id}` : '/')}
+            onClick={() => {
+              if (isEdit) {
+                navigate(`/observations/${id}`)
+              } else {
+                // New session: go back to journal, not tonight
+                navigate('/journal')
+              }
+            }}
             className="btn-secondary"
           >
             Cancel
