@@ -86,8 +86,16 @@ function ForecastRow({
 }: { 
   day: any
   isToday: boolean
-  score: StargazingScore
+  score?: StargazingScore | null
 }) {
+  if (!score) {
+    return (
+      <div className={`flex items-center justify-between py-3 border-b border-[hsl(215_15%_18%)] last:border-0 ${isToday ? 'bg-blue-500/5 -mx-2 px-2 rounded' : ''}`}>
+        <span className="text-sm text-gray-400">{formatSwissDate(day.date)}</span>
+        <div className="w-24 h-4 bg-[hsl(220_15%_14%)] rounded animate-pulse" />
+      </div>
+    )
+  }
 
   return (
     <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2.5 sm:py-3 border-b border-[hsl(215_15%_18%)] last:border-0 ${isToday ? 'bg-blue-500/5 -mx-2 sm:-mx-3 px-2 sm:px-3 rounded-lg my-1' : ''}`}>
@@ -241,10 +249,14 @@ export default function TonightSky() {
     queryFn: getWeather,
   })
 
-  // Calculate forecast scores - use default moon if data not loaded yet
-  const getForecastScore = (day: any): StargazingScore => {
-    // Use moon data if available, otherwise assume average moon (50%)
-    const moonIllum = tonightData?.moon?.illumination ?? 0.5
+  // Calculate forecast scores - wait for moon data
+  const getForecastScore = (day: any): StargazingScore | null => {
+    // If we don't have moon data yet, return null
+    if (!tonightData?.moon) {
+      return null
+    }
+    
+    const moonIllum = tonightData.moon.illumination
     
     let score = 10
     const reasons: string[] = []
@@ -266,11 +278,8 @@ export default function TonightSky() {
     else if (humidity > 75) { score -= 1; reasons.push('Hazy') }
     else if (humidity < 40) { score += 1; reasons.push('Clear air') }
 
-    // Moon penalty for forecast (use actual or default)
-    if (!tonightData?.moon) {
-      reasons.push('Moon TBD')
-      // No score change when moon unknown
-    } else if (moonIllum < 0.1) { 
+    // Moon penalty for forecast
+    if (moonIllum < 0.1) { 
       score += 2; reasons.push('New moon') 
     } else if (moonIllum < 0.25) { 
       score += 1; reasons.push('Dark moon') 
