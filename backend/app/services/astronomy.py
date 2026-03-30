@@ -5,6 +5,7 @@ Location: Aesch ZH — lat=47.468°N, lon=8.066°E
 
 import math
 from datetime import date, datetime, timedelta, timezone
+from functools import lru_cache
 from skyfield.api import Loader, wgs84
 from skyfield import almanac
 
@@ -26,6 +27,10 @@ ts = load.timescale()
 # UTC timezone
 UTC = timezone.utc
 
+# Simple in-memory cache for visibility calculations
+_visibility_cache = {}
+_moon_cache = {}
+
 
 def get_observer(dt: datetime):
     """Get Skyfield observer for Aesch ZH."""
@@ -37,7 +42,12 @@ def get_observer(dt: datetime):
 def get_moon_phase(target_date: date) -> dict:
     """
     Returns accurate moon phase using Skyfield.
+    Cached per date.
     """
+    cache_key = target_date.isoformat()
+    if cache_key in _moon_cache:
+        return _moon_cache[cache_key]
+    
     # Use noon UTC for the date
     dt = datetime(target_date.year, target_date.month, target_date.day, 12, 0, 0, tzinfo=UTC)
     t = ts.from_datetime(dt)
@@ -107,10 +117,12 @@ def get_moon_phase(target_date: date) -> dict:
     else:
         phase_name = "Full Moon"
     
-    return {
+    result = {
         "illumination": round(illumination, 3),
         "phase_name": phase_name,
     }
+    _moon_cache[cache_key] = result
+    return result
 
 
 def get_target_visibility(
@@ -122,7 +134,12 @@ def get_target_visibility(
 ) -> dict:
     """
     Calculate altitude, azimuth, rise/set times for a target from Aesch ZH.
+    Cached per target per date.
     """
+    cache_key = f"{catalog_id or target_name}:{target_date.isoformat()}"
+    if cache_key in _visibility_cache:
+        return _visibility_cache[cache_key]
+    
     topos = wgs84.latlon(AESCH_LAT, AESCH_LON, elevation_m=AESCH_ELEV)
     observer = earth + topos
     
@@ -182,7 +199,7 @@ def get_target_visibility(
     astrometric = observer.at(t_noon).observe(target)
     alt, az, dist = astrometric.apparent().altaz()
     
-    return {
+    result = {
         "target_name": target_name,
         "catalog_id": catalog_id,
         "date": str(target_date),
@@ -196,6 +213,8 @@ def get_target_visibility(
         "best_window": None,  # Could calculate this from good_times
         "constellation": _ra_dec_to_constellation(target_ra_hours, target_dec_deg),
     }
+    _visibility_cache[cache_key] = result
+    return result
 
 
 def _ra_dec_to_constellation(ra_hours: float, dec_deg: float) -> str:
