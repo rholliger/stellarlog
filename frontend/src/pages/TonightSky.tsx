@@ -269,13 +269,18 @@ export default function TonightSky() {
     // Moon penalty for forecast (use actual or default)
     if (!tonightData?.moon) {
       reasons.push('Moon TBD')
+      // No score change when moon unknown
     } else if (moonIllum < 0.1) { 
       score += 2; reasons.push('New moon') 
+    } else if (moonIllum < 0.25) { 
+      score += 1; reasons.push('Dark moon') 
+    } else if (moonIllum < 0.5) { 
+      score -= 1; reasons.push('Moon lit') 
+    } else if (moonIllum < 0.75) { 
+      score -= 2; reasons.push('Bright moon') 
+    } else { 
+      score -= 3; reasons.push('Full moon') 
     }
-    else if (moonIllum < 0.25) { score += 1; reasons.push('Dark moon') }
-    else if (moonIllum < 0.5) { score -= 1; reasons.push('Moon lit') }
-    else if (moonIllum < 0.75) { score -= 2; reasons.push('Bright moon') }
-    else { score -= 3; reasons.push('Full moon') }
 
     score = Math.max(0, Math.min(10, score))
     const stars = Math.max(1, Math.min(5, Math.round(score / 2)))
