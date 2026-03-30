@@ -2,8 +2,10 @@
 __pycache__/
 *.py[cod]
 venv/
+.venv/
 *.db
 .env
+backend/.venv/
 
 # Node
 node_modules/
