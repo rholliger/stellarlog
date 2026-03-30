@@ -4,14 +4,15 @@ import { useQuery } from '@tanstack/react-query'
 import { listObservations } from '@/lib/api'
 import { format } from 'date-fns'
 import { Moon, Cloud, Image, ChevronRight, Search, Telescope, Star } from 'lucide-react'
+import { EmptyState } from '@/components/EmptyState'
+import { ObservationCardSkeleton } from '@/components/Skeleton'
 
 function MoonBadge({ phase }: { phase: number | null }) {
   if (!phase) return null
   const pct = Math.round(phase * 100)
   const emoji = phase < 0.1 ? '🌑' : phase < 0.25 ? '🌒' : phase < 0.45 ? '🌓' : phase < 0.55 ? '🌕' : phase < 0.75 ? '🌖' : '🌗'
   return (
-    <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-      style={{ backgroundColor: 'hsl(220 15% 14%)', color: 'hsl(220 10% 60%)' }}>
+    <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-[hsl(220_15%_14%)] text-gray-400 border border-[hsl(215_15%_20%)]">
       {emoji} {pct}%
     </span>
   )
@@ -22,8 +23,7 @@ function WeatherBadge({ weatherJson }: { weatherJson: string | null }) {
   try {
     const w = JSON.parse(weatherJson)
     return (
-      <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-        style={{ backgroundColor: 'hsl(220 15% 14%)', color: 'hsl(220 10% 60%)' }}>
+      <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-[hsl(220_15%_14%)] text-gray-400 border border-[hsl(215_15%_20%)]">
         <Cloud className="w-3 h-3" />
         {Math.round(w.temperature)}°C · {w.cloud_cover}% clouds
       </span>
@@ -66,90 +66,89 @@ export default function ObservationsList() {
           />
           <input
             type="text"
-            placeholder="Filter…"
+            placeholder="Filter observations..."
             value={filter}
             onChange={e => setFilter(e.target.value)}
-            className="pl-9 pr-4 py-2 rounded-lg text-sm w-56"
-            style={{
-              backgroundColor: 'hsl(220 15% 11%)',
-              border: '1px solid hsl(215 15% 22%)',
-              color: 'hsl(210 40% 92%)',
-              outline: 'none',
-            }}
+            className="pl-9 pr-4 py-2 rounded-lg text-sm w-56 bg-[hsl(220_15%_11%)] border border-[hsl(215_15%_22%)] text-gray-100 placeholder-gray-600 focus:border-blue-500/50 focus:outline-none transition-colors"
           />
         </div>
       </div>
 
-      {isLoading && (
-        <p style={{ color: 'hsl(220 10% 50%)' }}>Loading observations…</p>
-      )}
-
-      {!filtered?.length && !isLoading && (
-        <div className="text-center py-20" style={{ color: 'hsl(220 10% 50%)' }}>
-          <Telescope className="w-12 h-12 mx-auto mb-4 opacity-30" />
-          <p>No observations yet.</p>
-          <Link
-            to="/new"
-            className="text-blue-400 hover:text-blue-300 hover:underline mt-2 inline-block"
-          >
-            Log your first session
-          </Link>
+      {isLoading ? (
+        <div className="grid gap-3">
+          {[...Array(4)].map((_, i) => (
+            <ObservationCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : !filtered?.length ? (
+        filter ? (
+          <div className="text-center py-16 text-gray-500">
+            <Search className="w-12 h-12 mx-auto mb-4 opacity-30" />
+            <p>No observations match &quot;{filter}&quot;</p>
+            <button
+              onClick={() => setFilter('')}
+              className="text-blue-400 hover:text-blue-300 mt-2 text-sm"
+            >
+              Clear filter
+            </button>
+          </div>
+        ) : (
+          <EmptyState
+            type="observations"
+            action={{ label: 'Log your first session', to: '/new' }}
+          />
+        )
+      ) : (
+        <div className="grid gap-3">
+          {filtered.map(obs => (
+            <Link
+              key={obs.id}
+              to={`/observations/${obs.id}`}
+              className="block rounded-xl p-4 transition-all duration-200 group bg-[hsl(220_15%_8%)] border border-[hsl(215_15%_18%)] hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/5 hover:-translate-y-0.5"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-lg">
+                      {obs.target_catalog_id && (
+                        <span className="mr-1 text-gray-500 font-mono">{obs.target_catalog_id}</span>
+                      )}
+                      {obs.target_name}
+                    </span>
+                    <MoonBadge phase={obs.moon_phase} />
+                    {obs.photos.length > 0 && (
+                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <Image className="w-3 h-3" />
+                        {obs.photos.length}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm mt-0.5 text-gray-500">
+                    {format(new Date(obs.date), 'EEEE, d MMMM yyyy')} · {obs.time}
+                  </p>
+                  {obs.notes_text && (
+                    <p className="text-sm mt-2 line-clamp-2 text-gray-400">
+                      {obs.notes_text}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <WeatherBadge weatherJson={obs.weather_json} />
+                    {obs.seeing_rating && (
+                      <span className="text-xs text-yellow-400/80">
+                        {'★'.repeat(obs.seeing_rating)}{'☆'.repeat(5 - obs.seeing_rating)}
+                      </span>
+                    )}
+                    {obs.location && (
+                      <span className="text-xs text-gray-500">{obs.location}</span>
+                    )}
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 shrink-0 mt-1 text-gray-600 group-hover:text-blue-400 transition-colors" />
+              </div>
+            </Link>
+          ))}
         </div>
       )}
-
-      <div className="grid gap-3">
-        {filtered?.map(obs => (
-          <Link
-            key={obs.id}
-            to={`/observations/${obs.id}`}
-            className="block rounded-xl p-4 transition-all group"
-            style={{
-              border: '1px solid hsl(215 15% 18%)',
-              backgroundColor: 'hsl(220 15% 8%)',
-            }}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-lg">
-                    {obs.target_catalog_id && (
-                      <span className="mr-1" style={{ color: 'hsl(220 10% 50%)' }}>{obs.target_catalog_id}</span>
-                    )}
-                    {obs.target_name}
-                  </span>
-                  <MoonBadge phase={obs.moon_phase} />
-                  {obs.photos.length > 0 && (
-                    <span className="flex items-center gap-1 text-xs" style={{ color: 'hsl(220 10% 50%)' }}>
-                      <Image className="w-3 h-3" />
-                      {obs.photos.length}
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm mt-0.5" style={{ color: 'hsl(220 10% 50%)' }}>
-                  {format(new Date(obs.date), 'EEEE, d MMMM yyyy')} · {obs.time}
-                </p>
-                {obs.notes_text && (
-                  <p className="text-sm mt-2 line-clamp-2" style={{ color: 'hsl(220 10% 55%)' }}>
-                    {obs.notes_text}
-                  </p>
-                )}
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <WeatherBadge weatherJson={obs.weather_json} />
-                  {obs.seeing_rating && (
-                    <span className="text-xs" style={{ color: 'hsl(220 10% 50%)' }}>
-                      {'★'.repeat(obs.seeing_rating)}{'☆'.repeat(5 - obs.seeing_rating)}
-                    </span>
-                  )}
-                  {obs.location && (
-                    <span className="text-xs" style={{ color: 'hsl(220 10% 50%)' }}>{obs.location}</span>
-                  )}
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 shrink-0 mt-1 transition-colors" style={{ color: 'hsl(220 10% 40%)' }} />
-            </div>
-          </Link>
-        ))}
-      </div>
     </div>
   )
 }

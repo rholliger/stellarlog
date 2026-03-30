@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getObservation, deleteObservation } from '@/lib/api'
@@ -6,6 +7,9 @@ import {
   Moon, Cloud, Star, MapPin, Camera, Edit2, Trash2,
   ArrowLeft, Image, Thermometer, Wind, Droplets, ExternalLink,
 } from 'lucide-react'
+import { useToast } from '@/components/Toast'
+import { Lightbox } from '@/components/Lightbox'
+import { DetailSkeleton } from '@/components/Skeleton'
 
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -23,6 +27,9 @@ export default function ObservationDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxIndex, setLightboxIndex] = useState(0)
 
   const { data: obs, isLoading } = useQuery({
     queryKey: ['observation', id],
@@ -33,12 +40,36 @@ export default function ObservationDetail() {
     mutationFn: () => deleteObservation(Number(id)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['observations'] })
+      showToast('Observation deleted', 'success')
       navigate('/journal')
+    },
+    onError: () => {
+      showToast('Failed to delete observation', 'error')
     },
   })
 
-  if (isLoading) return <p className="text-gray-500">Loading…</p>
-  if (!obs) return <p>Not found.</p>
+  const handleDelete = () => {
+    if (confirm('Delete this observation permanently?')) {
+      deleteMutation.mutate()
+    }
+  }
+
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index)
+    setLightboxOpen(true)
+  }
+
+  if (isLoading) return <DetailSkeleton />
+  if (!obs) {
+    return (
+      <div className="max-w-2xl mx-auto text-center py-16">
+        <p className="text-gray-500">Observation not found.</p>
+        <Link to="/journal" className="text-blue-400 hover:text-blue-300 mt-4 inline-block">
+          Back to Journal
+        </Link>
+      </div>
+    )
+  }
 
   const weather = obs.weather_json ? JSON.parse(obs.weather_json) : null
   const gearTags = obs.gear ? obs.gear.split(',').map(s => s.trim()).filter(Boolean) : []
@@ -70,19 +101,18 @@ export default function ObservationDetail() {
         <div className="flex items-center gap-2 shrink-0">
           <Link
             to={`/observations/${obs.id}/edit`}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors"
-            style={{ backgroundColor: 'hsl(220 15% 14%)', border: '1px solid hsl(215 15% 22%)' }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-[hsl(220_15%_14%)] border border-[hsl(215_15%_22%)] hover:border-[hsl(215_15%_30%)] transition-colors"
           >
             <Edit2 className="w-4 h-4 text-gray-400" />
             <span className="text-gray-300">Edit</span>
           </Link>
           <button
-            onClick={() => { if (confirm('Delete this observation permanently?')) deleteMutation.mutate() }}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors"
-            style={{ backgroundColor: 'hsl(0 50% 20%)', border: '1px solid hsl(0 50% 30%)' }}
+            onClick={handleDelete}
+            disabled={deleteMutation.isPending}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-colors disabled:opacity-50"
           >
             <Trash2 className="w-4 h-4 text-red-400" />
-            <span className="text-red-400">Delete</span>
+            <span className="text-red-400">{deleteMutation.isPending ? 'Deleting...' : 'Delete'}</span>
           </button>
         </div>
       </div>
@@ -90,7 +120,7 @@ export default function ObservationDetail() {
       {/* Quick facts row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6 pb-6 border-b border-[hsl(215_15%_18%)]">
         {obs.moon_phase != null && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'hsl(220 15% 10%)' }}>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[hsl(220_15%_10%)] border border-[hsl(215_15%_18%)]">
             <Moon className="w-4 h-4 text-gray-500 shrink-0" />
             <div>
               <p className="text-xs text-gray-500">Moon</p>
@@ -100,7 +130,7 @@ export default function ObservationDetail() {
           </div>
         )}
         {obs.location && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'hsl(220 15% 10%)' }}>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[hsl(220_15%_10%)] border border-[hsl(215_15%_18%)]">
             <MapPin className="w-4 h-4 text-gray-500 shrink-0" />
             <div>
               <p className="text-xs text-gray-500">Location</p>
@@ -109,7 +139,7 @@ export default function ObservationDetail() {
           </div>
         )}
         {obs.seeing_rating && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'hsl(220 15% 10%)' }}>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[hsl(220_15%_10%)] border border-[hsl(215_15%_18%)]">
             <Star className="w-4 h-4 text-yellow-400 shrink-0" />
             <div>
               <p className="text-xs text-gray-500">Sky</p>
@@ -119,21 +149,21 @@ export default function ObservationDetail() {
         )}
         {weather && (
           <>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'hsl(220 15% 10%)' }}>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[hsl(220_15%_10%)] border border-[hsl(215_15%_18%)]">
               <Thermometer className="w-4 h-4 text-gray-500 shrink-0" />
               <div>
                 <p className="text-xs text-gray-500">Temp</p>
                 <p className="text-sm font-medium">{Math.round(weather.temperature)}°C</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'hsl(220 15% 10%)' }}>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[hsl(220_15%_10%)] border border-[hsl(215_15%_18%)]">
               <Cloud className="w-4 h-4 text-gray-500 shrink-0" />
               <div>
                 <p className="text-xs text-gray-500">Clouds</p>
                 <p className="text-sm font-medium">{weather.cloud_cover}%</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'hsl(220 15% 10%)' }}>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[hsl(220_15%_10%)] border border-[hsl(215_15%_18%)]">
               <Droplets className="w-4 h-4 text-gray-500 shrink-0" />
               <div>
                 <p className="text-xs text-gray-500">Humidity</p>
@@ -147,8 +177,7 @@ export default function ObservationDetail() {
       {/* Notes */}
       {obs.notes_text && (
         <Section title="Field Notes" icon={<span className="text-xs">📝</span>}>
-          <div className="rounded-lg px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed"
-               style={{ backgroundColor: 'hsl(220 15% 10%)', color: 'hsl(210 40% 80%)' }}>
+          <div className="rounded-lg px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed bg-[hsl(220_15%_10%)] border border-[hsl(215_15%_18%)] text-gray-300">
             {obs.notes_text}
           </div>
         </Section>
@@ -159,8 +188,7 @@ export default function ObservationDetail() {
         <Section title="Equipment" icon={<Camera className="w-3.5 h-3.5 text-gray-500" />}>
           <div className="flex flex-wrap gap-2">
             {gearTags.map(tag => (
-              <span key={tag} className="px-2.5 py-1 text-xs rounded-full"
-                    style={{ backgroundColor: 'hsl(220 15% 14%)', color: 'hsl(210 80% 60%)', border: '1px solid hsl(215 15% 22%)' }}>
+              <span key={tag} className="px-2.5 py-1 text-xs rounded-full bg-[hsl(220_15%_14%)] text-blue-300 border border-[hsl(215_15%_22%)]">
                 {tag}
               </span>
             ))}
@@ -175,25 +203,32 @@ export default function ObservationDetail() {
           icon={<Image className="w-3.5 h-3.5 text-gray-500" />}
         >
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {obs.photos.map(photo => (
-              <a
+            {obs.photos.map((photo, index) => (
+              <button
                 key={photo.id}
-                href={photo.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block aspect-square rounded-lg overflow-hidden border transition-colors"
-                style={{ borderColor: 'hsl(215 15% 22%)' }}
+                onClick={() => openLightbox(index)}
+                className="block aspect-square rounded-lg overflow-hidden border border-[hsl(215_15%_22%)] hover:border-blue-500/50 transition-all hover:scale-[1.02]"
               >
                 <img
                   src={photo.url}
                   alt={photo.original_name || 'Observation photo'}
-                  className="w-full h-full object-cover hover:opacity-90 transition-opacity"
+                  className="w-full h-full object-cover"
                   loading="lazy"
                 />
-              </a>
+              </button>
             ))}
           </div>
         </Section>
+      )}
+
+      {/* Lightbox */}
+      {obs.photos.length > 0 && (
+        <Lightbox
+          photos={obs.photos}
+          initialIndex={lightboxIndex}
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+        />
       )}
 
       {/* Wiki link */}
