@@ -27,43 +27,52 @@ def _observer_for(dt: datetime) -> ephem.Observer:
 def get_moon_phase(target_date: date) -> dict:
     """
     Returns moon illumination and phase name for a given date.
-    Uses ephem's moon phase calculation which accounts for waxing/waning.
+    Uses ephem's moon phase calculation.
     """
     dt = datetime(target_date.year, target_date.month, target_date.day, 21, 0, 0)
     o = _observer_for(dt)
     moon = ephem.Moon(o)
+    sun = ephem.Sun(o)
     
     # Get illumination percentage (0-100)
     illumination_pct = moon.phase
     illumination = illumination_pct / 100.0
     
-    # Get moon age (days since new moon, 0-29.5)
-    # This tells us waxing (0-14.75) vs waning (14.75-29.5)
-    moon_age = moon.age
+    # Calculate elongation (angle between moon and sun)
+    # This tells us waxing (0-180) vs waning (180-360)
+    elongation = math.degrees(ephem.separation(moon, sun))
     
-    # Determine phase name based on age and illumination
-    if moon_age < 1:
+    # Determine phase name based on illumination and elongation
+    if illumination < 0.02:
         phase_name = "New Moon"
-    elif moon_age < 6:
-        phase_name = "Waxing Crescent"
-    elif moon_age < 9:
-        phase_name = "First Quarter"
-    elif moon_age < 14:
-        phase_name = "Waxing Gibbous"
-    elif moon_age < 16:
+    elif elongation < 90:
+        # Waxing (sunrise side illuminated)
+        if illumination < 0.25:
+            phase_name = "Waxing Crescent"
+        elif illumination < 0.50:
+            phase_name = "First Quarter"
+        else:
+            phase_name = "Waxing Gibbous"
+    elif elongation < 135:
+        # Near full
         phase_name = "Full Moon"
-    elif moon_age < 22:
-        phase_name = "Waning Gibbous"
-    elif moon_age < 25:
-        phase_name = "Last Quarter"
+    elif elongation < 270:
+        # Waning (sunset side illuminated)
+        if illumination > 0.75:
+            phase_name = "Waning Gibbous"
+        elif illumination > 0.50:
+            phase_name = "Last Quarter"
+        else:
+            phase_name = "Waning Crescent"
     else:
+        # Near new
         phase_name = "Waning Crescent"
 
     return {
         "illumination": round(illumination, 3),
         "phase_name": phase_name,
         "phase_angle_deg": round(illumination * 360, 1),
-        "moon_age_days": round(moon_age, 1),
+        "elongation_deg": round(elongation, 1),
     }
 
 
