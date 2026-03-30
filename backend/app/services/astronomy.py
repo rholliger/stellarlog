@@ -50,23 +50,27 @@ def get_moon_phase(target_date: date) -> dict:
     days_to_new = next_new - o.date
     days_to_full = next_full - o.date
     
-    # Determine phase based on proximity to new/full moon and illumination
-    if days_since_new < 1 or days_to_new < 1:
+    # Determine phase based on days since new moon (0-29.5 day cycle)
+    # Waxing: 0-14.75 days (New → Full)
+    # Waning: 14.75-29.5 days (Full → New)
+    if days_since_new < 1 or days_to_new < 0.5:
         phase_name = "New Moon"
     elif days_since_new < 3.5:
         phase_name = "Waxing Crescent"
-    elif days_since_new < 4.5:
+    elif days_since_new < 6.5:
         phase_name = "First Quarter"
-    elif days_to_full > 3.5:
+    elif days_since_new < 10.5:
         phase_name = "Waxing Gibbous"
-    elif days_to_full < 1.5 or days_since_full < 1.5:
+    elif days_since_new < 16.5:
         phase_name = "Full Moon"
-    elif days_since_full < 4.5:
+    elif days_since_new < 20.5:
         phase_name = "Waning Gibbous"
-    elif days_since_full < 5.5:
+    elif days_since_new < 23.5:
         phase_name = "Last Quarter"
-    else:
+    elif days_since_new < 27.5:
         phase_name = "Waning Crescent"
+    else:
+        phase_name = "New Moon"
 
     return {
         "illumination": round(illumination, 3),
