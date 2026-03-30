@@ -106,11 +106,14 @@ export const searchTargets = (q: string) =>
 export const getMoon = (date: string) =>
   api.get<MoonInfo>('/astronomy/moon', { params: { date } }).then(r => r.data)
 
+export const getTonightAstronomy = () =>
+  api.get('/astronomy/tonight').then(r => r.data)
+
 export const getVisibility = (catalogId: string, date: string) =>
   api.get<VisibilityInfo>('/astronomy/visibility', { params: { catalog_id: catalogId, date } }).then(r => r.data)
 
 export const getBestTonight = (limit = 10) =>
-  api.get<Target[]>('/astronomy/best-tonight', { params: { limit } }).then(r => r.data)
+  api.get<Target[]>('/astronomy/best-tonight', { params: { limit, visible_only: true, min_altitude: 20 } }).then(r => r.data)
 
 // Weather
 export const getWeather = () =>

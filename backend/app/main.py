@@ -363,6 +363,41 @@ def get_moon(date: str = Query(default=str(date.today()))):
     return MoonResponse(date=date, **moon)
 
 
+@app.get("/api/astronomy/tonight")
+async def get_tonight_astronomy():
+    """
+    Get comprehensive astronomy data for tonight including:
+    - Moon phase and illumination
+    - Moon altitude during night hours
+    - Sun rise/set times
+    - Stargazing score based on weather + moon
+    """
+    from datetime import date
+    today = date.today()
+    
+    # Get moon data
+    moon = astronomy.get_moon_phase(today)
+    
+    # Get astronomy data from Open-Meteo
+    astro_data = await weather.get_astronomy_data(today)
+    
+    # Get current weather
+    current_weather = await weather.get_weather_for_date(today)
+    
+    # Calculate stargazing score
+    moon_illum = moon.get("illumination", 0)
+    moon_alt_night = astro_data.get("moon_altitude_night", 0) if astro_data else 0
+    score_data = weather.calculate_stargazing_score(current_weather or {}, moon_illum, moon_alt_night)
+    
+    return {
+        "date": today.isoformat(),
+        "moon": moon,
+        "astronomy": astro_data,
+        "weather": current_weather,
+        "stargazing_score": score_data,
+    }
+
+
 @app.get("/api/astronomy/visibility", response_model=VisibilityResponse)
 def get_visibility(
     catalog_id: str = Query(..., description="e.g. M42 or NGC 224"),
@@ -404,11 +439,18 @@ def get_visibility(
 
 
 @app.get("/api/astronomy/best-tonight")
-def get_best_targets_tonight(limit: int = Query(10, le=30)):
+def get_best_targets_tonight(
+    limit: int = Query(10, le=30),
+    min_altitude: float = Query(20.0, description="Minimum altitude in degrees to be considered visible"),
+    visible_only: bool = Query(True, description="Only return targets currently above horizon")
+):
     """
     Returns the best DSO targets visible tonight from Aesch ZH.
-    Combines all three catalogs.
+    Filters to targets that are actually observable (above horizon, decent altitude).
     """
+    from datetime import date
+    today = date.today()
+    
     with get_cursor() as cur:
         targets = []
         for table in ["messier", "caldwell", "ngc_flags"]:
@@ -416,8 +458,29 @@ def get_best_targets_tonight(limit: int = Query(10, le=30)):
             for row in cur.fetchall():
                 targets.append(dict_from_row(row))
 
-    scored = astronomy.get_best_targets_this_week(targets)
-    return scored[:limit]
+    # Calculate visibility for each target
+    visible_targets = []
+    for t in targets:
+        if not t.get("ra_hours") or not t.get("dec_deg"):
+            continue
+            
+        vis = astronomy.get_target_visibility(
+            t["ra_hours"],
+            t["dec_deg"],
+            today,
+            t.get("name", ""),
+            t.get("catalog_id", ""),
+        )
+        
+        # Only include targets that are actually visible tonight
+        if vis["max_altitude"] >= min_altitude:
+            t["visibility"] = vis
+            t["score"] = vis["max_altitude"] if vis["is_visible"] else vis["max_altitude"] * 0.5
+            visible_targets.append(t)
+
+    # Sort by score (highest altitude = best)
+    visible_targets.sort(key=lambda x: x["score"], reverse=True)
+    return visible_targets[:limit]
 
 
 # ---------------------------------------------------------------------------

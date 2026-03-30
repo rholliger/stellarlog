@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { getBestTonight, getMoon, getForecast, getWeather } from '@/lib/api'
+import { getBestTonight, getTonightAstronomy, getForecast, getWeather } from '@/lib/api'
 import { useLiveSky } from '@/hooks/useLiveSky'
 import { Moon, Cloud, Star, Eye, Wind, Thermometer, Droplets, Sparkles, ExternalLink, Clock } from 'lucide-react'
 import { VisibilityBar } from '@/components/VisibilityBar'
@@ -21,29 +21,48 @@ function dsoWikiUrl(catalogId: string): string {
   return `https://en.wikipedia.org/wiki/${encodeURIComponent(clean.replace(/\s+/g, '_'))}`
 }
 
-function moonIllumToStars(illumination: number): { stars: number; label: string; color: string } {
-  if (illumination < 0.1) return { stars: 5, label: 'Perfect', color: 'text-green-400' }
-  if (illumination < 0.25) return { stars: 4, label: 'Dark', color: 'text-green-400' }
-  if (illumination < 0.5) return { stars: 3, label: 'Moderate', color: 'text-yellow-400' }
-  if (illumination < 0.75) return { stars: 2, label: 'Bright', color: 'text-orange-400' }
-  return { stars: 1, label: 'Full', color: 'text-red-400' }
+function moonIllumToEmoji(illumination: number): string {
+  if (illumination < 0.1) return '🌑'
+  if (illumination < 0.25) return '🌒'
+  if (illumination < 0.45) return '🌓'
+  if (illumination < 0.55) return '🌕'
+  if (illumination < 0.75) return '🌖'
+  return '🌗'
 }
 
-function MoonBadge({ illumination }: { illumination: number }) {
-  const { stars, label, color } = moonIllumToStars(illumination)
-  const emoji = illumination < 0.1 ? '🌑' : illumination < 0.25 ? '🌒' : illumination < 0.45 ? '🌓' : illumination < 0.55 ? '🌕' : illumination < 0.75 ? '🌖' : '🌗'
+interface StargazingScore {
+  score: number
+  stars: number
+  label: string
+  color: string
+  reasons: string[]
+  verdict: string
+}
+
+function StargazingRating({ score, size = 'md' }: { score: StargazingScore; size?: 'sm' | 'md' | 'lg' }) {
+  const starSizes = {
+    sm: 'w-3 h-3',
+    md: 'w-4 h-4',
+    lg: 'w-5 h-5',
+  }
+  const textSizes = {
+    sm: 'text-xs',
+    md: 'text-sm',
+    lg: 'text-base',
+  }
+  
   return (
-    <div className="flex items-center gap-2 sm:gap-3 bg-[hsl(220_15%_11%)] border border-[hsl(215_15%_18%)] rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 hover:border-[hsl(215_15%_25%)] transition-colors">
-      <span className="text-xl sm:text-2xl">{emoji}</span>
-      <div>
-        <p className="text-sm font-medium text-gray-200">{Math.round(illumination * 100)}% illuminated</p>
-        <div className="flex items-center gap-1 mt-0.5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Star key={i} className={`w-2.5 h-2.5 sm:w-3 sm:h-3 ${i < stars ? color : 'text-gray-700'}`} fill={i < stars ? 'currentColor' : 'none'} />
-          ))}
-          <span className={`text-xs ml-1 ${color}`}>{label}</span>
-        </div>
+    <div className="flex items-center gap-2">
+      <div className="flex gap-0.5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Star
+            key={i}
+            className={`${starSizes[size]} ${i < score.stars ? score.color : 'text-gray-700'}`}
+            fill={i < score.stars ? 'currentColor' : 'none'}
+          />
+        ))}
       </div>
+      <span className={`${textSizes[size]} font-medium ${score.color}`}>{score.verdict}</span>
     </div>
   )
 }
@@ -60,68 +79,60 @@ function LiveClock() {
   )
 }
 
-function stargazingScore(day: any, moonIllum?: number): { score: number; stars: number; label: string; color: string; reasons: string[] } {
-  let score = 10
-  const reasons: string[] = []
-
-  const cloudCover = day.cloud_cover || 100
-  if (cloudCover < 20) { score += 3; reasons.push('Clear') }
-  else if (cloudCover < 50) { score += 1; reasons.push('Patchy') }
-  else if (cloudCover < 80) { score -= 3; reasons.push('Cloudy') }
-  else { score -= 6; reasons.push('Overcast') }
-
-  const wind = day.wind_speed || 0
-  if (wind > 30) { score -= 2; reasons.push('Windy') }
-  else if (wind < 15) reasons.push('Calm')
-
-  const dew = day.dew_point || day.dewpoint_celsius
-  if (dew != null && dew > 10) { score -= 1; reasons.push('Dew') }
-
-  const temp = (day.temp_min + day.temp_max) / 2
-  if (temp < 0) { score -= 1; reasons.push('Frost') }
-  else if (temp > 5 && temp < 20) score += 1
-
-  if (moonIllum != null) {
-    const moonStars = moonIllumToStars(moonIllum).stars
-    const moonPenalty = (5 - moonStars) * 0.5
-    score -= moonPenalty
-  }
-
-  score = Math.max(0, Math.min(10, score))
-  if (score >= 8) return { score, stars: 5, label: 'Excellent', color: 'text-green-400', reasons }
-  if (score >= 6) return { score, stars: 4, label: 'Good', color: 'text-green-400', reasons }
-  if (score >= 4) return { score, stars: 3, label: 'Fair', color: 'text-yellow-400', reasons }
-  if (score >= 2) return { score, stars: 2, label: 'Poor', color: 'text-orange-400', reasons }
-  return { score, stars: 1, label: 'Very Poor', color: 'text-red-400', reasons }
-}
-
-function ForecastRow({ day, isToday, moonIllum }: { day: any; isToday: boolean; moonIllum?: number }) {
-  const { stars, label, color, reasons } = stargazingScore(day, moonIllum)
-  const isGood = stars >= 4
+function ForecastRow({ 
+  day, 
+  isToday, 
+  score 
+}: { 
+  day: any
+  isToday: boolean
+  score?: StargazingScore 
+}) {
+  const hasScore = score && score.score > 0
 
   return (
     <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2.5 sm:py-3 border-b border-[hsl(215_15%_18%)] last:border-0 ${isToday ? 'bg-blue-500/5 -mx-2 sm:-mx-3 px-2 sm:px-3 rounded-lg my-1' : ''}`}>
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-        {isToday && <span className="shrink-0 text-xs font-medium text-blue-400 bg-blue-500/15 px-1.5 sm:px-2 py-0.5 rounded">Today</span>}
+        {isToday && (
+          <span className="shrink-0 text-xs font-medium text-blue-400 bg-blue-500/15 px-1.5 sm:px-2 py-0.5 rounded">
+            Today
+          </span>
+        )}
         <div className="min-w-0">
           <p className={`text-sm font-medium ${isToday ? 'text-white' : 'text-gray-300'}`}>
             {formatSwissDate(day.date)}
           </p>
-          <p className="text-xs text-gray-500 truncate">{reasons.join(' · ')}</p>
+          {hasScore && (
+            <p className="text-xs text-gray-500 truncate">{score.reasons.join(' · ')}</p>
+          )}
         </div>
       </div>
+      
       <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
-        {isGood && <Sparkles className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${color} shrink-0`} />}
-        <div className="flex items-center gap-0.5 shrink-0">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Star key={i} className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${i < stars ? color : 'text-gray-700'}`} fill={i < stars ? 'currentColor' : 'none'} />
-          ))}
-        </div>
-        <span className={`text-xs font-medium ${color} shrink-0 w-14 sm:w-16 text-right`}>{label}</span>
+        {hasScore && score.score >= 7 && <Sparkles className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${score.color} shrink-0`} />}
+        
+        {hasScore ? (
+          <StargazingRating score={score} size="sm" />
+        ) : (
+          <span className="text-xs text-gray-500">No data</span>
+        )}
+        
         <div className="flex items-center gap-2 sm:gap-3 text-xs text-gray-500 shrink-0">
           <span>{Math.round(day.temp_min)}°/{Math.round(day.temp_max)}°</span>
-          <span className="flex items-center gap-0.5"><Cloud className="w-3 h-3" />{day.cloud_cover}%</span>
-          <span className="hidden sm:flex items-center gap-0.5"><Wind className="w-3 h-3" />{Math.round(day.wind_speed)}</span>
+          <span className="flex items-center gap-0.5">
+            <Cloud className="w-3 h-3" />
+            {day.cloud_cover}%
+          </span>
+          <span className="hidden sm:flex items-center gap-0.5">
+            <Wind className="w-3 h-3" />
+            {Math.round(day.wind_speed)}
+          </span>
+          {day.dew_point != null && (
+            <span className="hidden sm:flex items-center gap-0.5">
+              <Droplets className="w-3 h-3" />
+              {Math.round(day.dew_point)}°
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -143,11 +154,13 @@ function TargetCard({ target, currentTime }: { target: any; currentTime?: string
             <p className="font-mono text-blue-400 font-medium text-sm sm:text-base">{target.catalog_id}</p>
             {isCurrentlyVisible && (
               <span className="text-xs px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded-full border border-green-500/30 shrink-0">
-                Now
+                Visible
               </span>
             )}
             {target.type && (
-              <span className="hidden sm:inline text-xs px-1.5 py-0.5 bg-[hsl(220_15%_14%)] text-gray-500 rounded">{target.type}</span>
+              <span className="hidden sm:inline text-xs px-1.5 py-0.5 bg-[hsl(220_15%_14%)] text-gray-500 rounded">
+                {target.type}
+              </span>
             )}
           </div>
           <p className="text-sm font-medium mt-0.5 truncate">{target.name || target.common_name}</p>
@@ -155,7 +168,7 @@ function TargetCard({ target, currentTime }: { target: any; currentTime?: string
         </div>
         <div className={`text-right shrink-0 ${qualityColor}`}>
           <p className="text-base sm:text-lg font-bold">{alt > 0 ? `${alt.toFixed(0)}°` : '—'}</p>
-          <p className="text-xs opacity-60">max</p>
+          <p className="text-xs opacity-60">max alt</p>
         </div>
       </div>
 
@@ -164,7 +177,7 @@ function TargetCard({ target, currentTime }: { target: any; currentTime?: string
       )}
 
       {/* Visual visibility timeline */}
-      {vis && (
+      {vis && vis.rise_time && vis.set_time ? (
         <div className="mt-2 sm:mt-3">
           <VisibilityBar
             riseTime={vis.rise_time}
@@ -173,6 +186,8 @@ function TargetCard({ target, currentTime }: { target: any; currentTime?: string
             currentTime={currentTime}
           />
         </div>
+      ) : (
+        <p className="mt-2 text-xs text-gray-600 italic">Below horizon tonight</p>
       )}
 
       {/* Quick actions */}
@@ -206,17 +221,77 @@ export default function TonightSky() {
   const today = new Date().toISOString().split('T')[0]
   const { currentTime } = useLiveSky()
 
-  const { data: moon, isLoading: moonLoading } = useQuery({ queryKey: ['moon', today], queryFn: () => getMoon(today) })
-  const { data: forecast, isLoading: forecastLoading } = useQuery({ queryKey: ['forecast'], queryFn: getForecast })
-  const { data: targets, isLoading: targetsLoading } = useQuery({ queryKey: ['best-tonight'], queryFn: () => getBestTonight(15) })
-  const { data: currentWeather } = useQuery({ queryKey: ['weather'], queryFn: getWeather })
+  // Get comprehensive tonight data (moon + weather + score)
+  const { data: tonightData, isLoading: tonightLoading } = useQuery({
+    queryKey: ['tonight'],
+    queryFn: getTonightAstronomy,
+  })
 
-  const goodTargets = targets?.filter((t: any) => (t.visibility?.max_altitude || 0) > 20) || []
-  const moonIllum = moon?.illumination
+  const { data: forecast, isLoading: forecastLoading } = useQuery({
+    queryKey: ['forecast'],
+    queryFn: getForecast,
+  })
+
+  const { data: targets, isLoading: targetsLoading } = useQuery({
+    queryKey: ['best-tonight'],
+    queryFn: () => getBestTonight(12),
+  })
+
+  const { data: currentWeather } = useQuery({
+    queryKey: ['weather'],
+    queryFn: getWeather,
+  })
+
+  // Calculate forecast scores
+  const getForecastScore = (day: any): StargazingScore => {
+    const moonIllum = tonightData?.moon?.illumination || 0.5
+    
+    let score = 10
+    const reasons: string[] = []
+
+    const cloudCover = day.cloud_cover || 100
+    if (cloudCover < 10) { score += 3; reasons.push('Crystal clear') }
+    else if (cloudCover < 25) { score += 2; reasons.push('Clear') }
+    else if (cloudCover < 50) { score += 0; reasons.push('Patchy') }
+    else if (cloudCover < 75) { score -= 3; reasons.push('Cloudy') }
+    else { score -= 6; reasons.push('Overcast') }
+
+    const wind = day.wind_speed || 0
+    if (wind > 40) { score -= 3; reasons.push('Very windy') }
+    else if (wind > 25) { score -= 1; reasons.push('Breezy') }
+    else if (wind < 10) { score += 1; reasons.push('Calm') }
+
+    const humidity = day.humidity || 50
+    if (humidity > 90) { score -= 2; reasons.push('Poor transparency') }
+    else if (humidity > 75) { score -= 1; reasons.push('Hazy') }
+    else if (humidity < 40) { score += 1; reasons.push('Clear air') }
+
+    // Moon penalty for forecast (assume moon is up)
+    if (moonIllum < 0.1) { score += 2; reasons.push('New moon') }
+    else if (moonIllum < 0.25) { score += 1; reasons.push('Dark moon') }
+    else if (moonIllum < 0.5) { score -= 1; reasons.push('Moon lit') }
+    else if (moonIllum < 0.75) { score -= 2; reasons.push('Bright moon') }
+    else { score -= 3; reasons.push('Full moon') }
+
+    score = Math.max(0, Math.min(10, score))
+    const stars = Math.max(1, Math.min(5, Math.round(score / 2)))
+    
+    return {
+      score,
+      stars,
+      label: score >= 9 ? 'Excellent' : score >= 7 ? 'Good' : score >= 5 ? 'Fair' : score >= 3 ? 'Poor' : 'Very Poor',
+      color: score >= 7 ? 'text-green-400' : score >= 5 ? 'text-yellow-400' : score >= 3 ? 'text-orange-400' : 'text-red-400',
+      reasons,
+      verdict: score >= 9 ? 'Excellent' : score >= 7 ? 'Good' : score >= 5 ? 'Fair' : score >= 3 ? 'Poor' : 'Very Poor',
+    }
+  }
+
+  const tonightScore = tonightData?.stargazing_score
+  const moon = tonightData?.moon
 
   return (
     <div>
-      {/* Header with live clock */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4 mb-4 sm:mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold mb-0.5 sm:mb-1 flex items-center gap-2">
@@ -230,23 +305,55 @@ export default function TonightSky() {
         <LiveClock />
       </div>
 
-      {/* Moon */}
-      {moonLoading ? (
-        <div className="h-[60px] sm:h-[72px] bg-[hsl(220_15%_11%)] rounded-xl animate-pulse" />
-      ) : moon ? (
-        <MoonBadge illumination={moon.illumination} />
+      {/* Tonight's stargazing conditions */}
+      {tonightLoading ? (
+        <div className="h-[80px] sm:h-[100px] bg-[hsl(220_15%_11%)] rounded-xl animate-pulse" />
+      ) : tonightScore ? (
+        <div className="bg-[hsl(220_15%_11%)] border border-[hsl(215_15%_18%)] rounded-xl p-3 sm:p-4 hover:border-[hsl(215_15%_25%)] transition-colors">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="text-2xl sm:text-3xl">{moon ? moonIllumToEmoji(moon.illumination) : '🌑'}</span>
+              <div>
+                <p className="text-sm sm:text-base font-medium text-gray-200">
+                  {moon ? `${Math.round(moon.illumination * 100)}% illuminated` : 'Moon data unavailable'}
+                </p>
+                <div className="mt-1">
+                  <StargazingRating score={tonightScore} size="md" />
+                </div>
+              </div>
+            </div>
+            <div className="text-right hidden sm:block">
+              <p className="text-xs text-gray-500">Conditions</p>
+              <p className="text-xs text-gray-400 max-w-[150px]">{tonightScore.reasons.slice(0, 3).join(' · ')}</p>
+            </div>
+          </div>
+          {tonightScore.reasons.length > 0 && (
+            <p className="mt-2 text-xs text-gray-500 sm:hidden">
+              {tonightScore.reasons.slice(0, 3).join(' · ')}
+            </p>
+          )}
+        </div>
       ) : null}
 
       {/* Current conditions */}
       {currentWeather && (
         <div className="mt-3 sm:mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
           {[
-            { icon: Thermometer, label: 'Temp', value: `${Math.round(currentWeather.temperature)}°C`, shortValue: `${Math.round(currentWeather.temperature)}°` },
-            { icon: Cloud, label: 'Clouds', value: `${currentWeather.cloud_cover}%`, shortValue: `${currentWeather.cloud_cover}%` },
-            { icon: Wind, label: 'Wind', value: `${Math.round(currentWeather.wind_speed)} km/h`, shortValue: `${Math.round(currentWeather.wind_speed)}` },
-            { icon: Droplets, label: 'Dew', value: currentWeather.dew_point != null ? `${Math.round(currentWeather.dew_point)}°C` : '—', shortValue: currentWeather.dew_point != null ? `${Math.round(currentWeather.dew_point)}°` : '—' },
-          ].map(({ icon: Icon, label, value, shortValue }) => (
-            <div key={label} className="bg-[hsl(220_15%_11%)] border border-[hsl(215_15%_18%)] rounded-xl px-2.5 sm:px-3 py-2 sm:py-2.5 hover:border-[hsl(215_15%_25%)] transition-colors">
+            { icon: Thermometer, label: 'Temp', value: `${Math.round(currentWeather.temperature)}°C` },
+            { icon: Cloud, label: 'Clouds', value: `${currentWeather.cloud_cover}%` },
+            { icon: Wind, label: 'Wind', value: `${Math.round(currentWeather.wind_speed)} km/h` },
+            { 
+              icon: Droplets, 
+              label: 'Dew', 
+              value: currentWeather.dew_point != null ? `${Math.round(currentWeather.dew_point)}°C` : 'N/A',
+              tooltip: currentWeather.dew_point != null ? 'Dew point temperature' : 'Data not available'
+            },
+          ].map(({ icon: Icon, label, value, tooltip }) => (
+            <div 
+              key={label} 
+              className="bg-[hsl(220_15%_11%)] border border-[hsl(215_15%_18%)] rounded-xl px-2.5 sm:px-3 py-2 sm:py-2.5 hover:border-[hsl(215_15%_25%)] transition-colors"
+              title={tooltip}
+            >
               <div className="flex items-center gap-1 text-xs text-gray-500 mb-0.5 sm:mb-1">
                 <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 <span className="hidden sm:inline">{label}</span>
@@ -257,18 +364,23 @@ export default function TonightSky() {
         </div>
       )}
 
-      {/* 7-day forecast */}
+      {/* 5-day forecast */}
       {forecastLoading ? (
         <div className="mt-4 sm:mt-6 h-[150px] sm:h-[200px] bg-[hsl(220_15%_10%)] rounded-xl animate-pulse" />
       ) : forecast && forecast.length > 0 ? (
         <div className="mt-4 sm:mt-6">
           <h2 className="text-xs sm:text-sm font-medium text-gray-400 mb-2 sm:mb-3 flex items-center gap-2">
             <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            7-Day Forecast
+            5-Day Stargazing Forecast
           </h2>
           <div className="bg-[hsl(220_15%_10%)] border border-[hsl(215_15%_18%)] rounded-xl px-2 sm:px-4 hover:border-[hsl(215_15%_22%)] transition-colors">
             {forecast.map(day => (
-              <ForecastRow key={day.date} day={day} isToday={day.date === today} moonIllum={moonIllum} />
+              <ForecastRow 
+                key={day.date} 
+                day={day} 
+                isToday={day.date === today}
+                score={getForecastScore(day)}
+              />
             ))}
           </div>
         </div>
@@ -279,9 +391,11 @@ export default function TonightSky() {
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2">
             <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
-            Best Targets
+            Best Targets Tonight
           </h2>
-          <span className="text-xs sm:text-sm text-gray-500">{goodTargets.length} visible</span>
+          <span className="text-xs sm:text-sm text-gray-500">
+            {targets?.length || 0} visible
+          </span>
         </div>
 
         {targetsLoading ? (
@@ -290,14 +404,18 @@ export default function TonightSky() {
               <TargetCardSkeleton key={i} />
             ))}
           </div>
-        ) : goodTargets.length === 0 ? (
-          <EmptyState type="targets" />
-        ) : (
+        ) : targets && targets.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
-            {goodTargets.map(target => (
-              <TargetCard key={`${target.catalog_id}-${target.source_catalog}`} target={target} currentTime={currentTime} />
+            {targets.map(target => (
+              <TargetCard 
+                key={`${target.catalog_id}-${target.source_catalog}`} 
+                target={target} 
+                currentTime={currentTime} 
+              />
             ))}
           </div>
+        ) : (
+          <EmptyState type="targets" />
         )}
       </div>
     </div>
