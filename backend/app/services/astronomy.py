@@ -154,6 +154,7 @@ def get_target_visibility(
     
     # Calculate altitude at different times to find max
     max_alt = -90
+    max_alt_dark = -90  # Max altitude during darkness
     best_time = None
     rise_time = None
     set_time = None
@@ -170,12 +171,14 @@ def get_target_visibility(
         sun_alt, _, _ = sun_astrometric.apparent().altaz()
         is_dark = sun_alt.degrees < -12  # Astronomical twilight
         
-        # Track max altitude during dark hours for "best viewing time"
+        # Track overall max altitude
         if alt.degrees > max_alt:
             max_alt = alt.degrees
-            # Only update best_time if it's dark (for observing)
-            if is_dark:
-                best_time = t
+        
+        # Track max altitude during dark hours for "best viewing time"
+        if is_dark and alt.degrees > max_alt_dark:
+            max_alt_dark = alt.degrees
+            best_time = t
         
         # Track when it crosses horizon
         if alt.degrees > 0 and rise_time is None:
