@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueries } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { getBestTonight, getTonightAstronomy, getForecast, getWeather, getMoon } from '@/lib/api'
 import { useLiveSky } from '@/hooks/useLiveSky'
@@ -289,14 +289,16 @@ export default function TonightSky() {
 
   // Fetch moon phases for each forecast day
   const forecastDays = forecast?.map((day: any) => day.date) || []
-  const moonQueries = forecastDays.map((date: string) => ({
-    queryKey: ['moon', date],
-    queryFn: () => getMoon(date),
-    enabled: !!date,
-  }))
   
-  // Use useQueries to fetch all moon phases in parallel
-  const moonResults = moonQueries.map(query => useQuery(query))
+  // Use useQueries to fetch all moon phases in parallel (proper hook usage)
+  const moonResults = useQueries({
+    queries: forecastDays.map((date: string) => ({
+      queryKey: ['moon', date],
+      queryFn: () => getMoon(date),
+      enabled: !!date && forecastDays.length > 0,
+    })),
+  })
+  
   const moonDataMap = forecastDays.reduce((acc: Record<string, MoonData>, date: string, idx: number) => {
     if (moonResults[idx]?.data) {
       acc[date] = moonResults[idx].data
