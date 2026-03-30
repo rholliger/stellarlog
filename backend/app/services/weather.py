@@ -168,7 +168,7 @@ async def get_astronomy_data(target_date: date) -> Optional[dict]:
             return None
 
 
-def calculate_stargazing_score(weather: dict, moon_illumination: float, moon_altitude_night: float = 0) -> dict:
+def calculate_stargazing_score(weather: dict, moon_illumination: float, moon_altitude_night: float = 0, moon_phase_name: str = None) -> dict:
     """
     Calculate a comprehensive stargazing score (0-10) based on:
     - Cloud cover
@@ -176,6 +176,7 @@ def calculate_stargazing_score(weather: dict, moon_illumination: float, moon_alt
     - Humidity (transparency)
     - Moon illumination
     - Moon altitude during night hours
+    - Moon phase name (for accurate description)
     """
     score = 10
     reasons = []
@@ -227,22 +228,44 @@ def calculate_stargazing_score(weather: dict, moon_illumination: float, moon_alt
     if moon_altitude_night < 0:
         reasons.append("Moon below horizon")
     else:
-        # Moon is up - apply illumination penalty
-        if moon_illumination < 0.1:
-            score += 2
-            reasons.append("New moon")
-        elif moon_illumination < 0.25:
-            score += 1
-            reasons.append("Dark moon")
-        elif moon_illumination < 0.5:
-            score -= 1
-            reasons.append("Moderate moon")
-        elif moon_illumination < 0.75:
-            score -= 2
-            reasons.append("Bright moon")
+        # Moon is up - use phase name if available, otherwise fall back to illumination
+        if moon_phase_name:
+            # Use the actual phase name from astronomy service
+            phase_lower = moon_phase_name.lower()
+            if 'new' in phase_lower:
+                score += 2
+                reasons.append("New moon")
+            elif 'crescent' in phase_lower:
+                score += 1
+                reasons.append("Dark moon")
+            elif 'quarter' in phase_lower:
+                score += 0
+                reasons.append(phase_name)
+            elif 'gibbous' in phase_lower:
+                score -= 1
+                reasons.append(phase_name)
+            elif 'full' in phase_lower:
+                score -= 3
+                reasons.append("Full moon")
+            else:
+                reasons.append(phase_name)
         else:
-            score -= 3
-            reasons.append("Full moon")
+            # Fall back to illumination-based scoring
+            if moon_illumination < 0.1:
+                score += 2
+                reasons.append("New moon")
+            elif moon_illumination < 0.25:
+                score += 1
+                reasons.append("Dark moon")
+            elif moon_illumination < 0.5:
+                score -= 1
+                reasons.append("Moderate moon")
+            elif moon_illumination < 0.75:
+                score -= 2
+                reasons.append("Bright moon")
+            else:
+                score -= 3
+                reasons.append("Full moon")
 
     # Clamp score
     score = max(0, min(10, score))

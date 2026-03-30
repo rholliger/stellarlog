@@ -387,7 +387,8 @@ async def get_tonight_astronomy():
     # Calculate stargazing score
     moon_illum = moon.get("illumination", 0)
     moon_alt_night = astro_data.get("moon_altitude_night", 0) if astro_data else 0
-    score_data = weather.calculate_stargazing_score(current_weather or {}, moon_illum, moon_alt_night)
+    moon_phase_name = moon.get("phase_name")
+    score_data = weather.calculate_stargazing_score(current_weather or {}, moon_illum, moon_alt_night, moon_phase_name)
     
     return {
         "date": today.isoformat(),
