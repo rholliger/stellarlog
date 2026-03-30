@@ -109,6 +109,9 @@ export const getMoon = (date: string) =>
 export const getTonightAstronomy = () =>
   api.get('/astronomy/tonight').then(r => r.data)
 
+export const getMoonPhaseForDate = (date: string) =>
+  api.get('/astronomy/moon', { params: { date } }).then(r => r.data)
+
 export const getVisibility = (catalogId: string, date: string) =>
   api.get<VisibilityInfo>('/astronomy/visibility', { params: { catalog_id: catalogId, date } }).then(r => r.data)
 
