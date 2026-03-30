@@ -7,11 +7,16 @@ function formatSwissDate(dateStr: string): string {
   return `${d}.${m}.${y}`
 }
 
-// Wikipedia link: use catalog ID directly (M42, NGC 224, C1) — not the name or type
+// Wikipedia link for DSO objects
 function dsoWikiUrl(catalogId: string): string {
-  // Strip any prefix like "NGC " or "M " or "C "
-  const clean = catalogId.replace(/^(NGC|M|C)\s*/i, '').trim()
-  return `https://en.wikipedia.org/wiki/${encodeURIComponent(clean)}`
+  const clean = catalogId.trim()
+  // Caldwell: Wikipedia uses "Caldwell X" not "C X"
+  const caldwellMatch = clean.match(/^C\s*(\d+)$/i)
+  if (caldwellMatch) {
+    return `https://en.wikipedia.org/wiki/Caldwell_${encodeURIComponent(caldwellMatch[1])}`
+  }
+  // Messier and NGC work as-is with spaces replaced by underscores
+  return `https://en.wikipedia.org/wiki/${encodeURIComponent(clean.replace(/\s+/g, '_'))}`
 }
 
 function moonIllumToStars(illumination: number): { stars: number; label: string; color: string } {

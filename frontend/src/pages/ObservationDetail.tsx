@@ -200,7 +200,14 @@ export default function ObservationDetail() {
       {obs.target_catalog_id && (
         <div className="mt-6 pt-6 border-t border-[hsl(215_15%_18%)]">
           <a
-            href={`https://en.wikipedia.org/wiki/${obs.target_catalog_id.replace(/^(NGC|M|C)\s*/i, '').trim()}`}
+            href={(() => {
+              const clean = obs.target_catalog_id!.trim()
+              const caldwellMatch = clean.match(/^C\s*(\d+)$/i)
+              if (caldwellMatch) {
+                return `https://en.wikipedia.org/wiki/Caldwell_${encodeURIComponent(caldwellMatch[1])}`
+              }
+              return `https://en.wikipedia.org/wiki/${encodeURIComponent(clean.replace(/\s+/g, '_'))}`
+            })()}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
