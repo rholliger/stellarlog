@@ -186,13 +186,13 @@ def get_target_visibility(
         "target_name": target_name,
         "catalog_id": catalog_id,
         "date": str(target_date),
-        "altitude": round(alt.degrees, 1),
-        "max_altitude": round(max_alt, 1),
+        "altitude": float(round(alt.degrees, 1)),
+        "max_altitude": float(round(max_alt, 1)),
         "transit_time": transit_time,
-        "transit_altitude": round(max_alt, 1),
+        "transit_altitude": float(round(max_alt, 1)),
         "rise_time": format_time(rise_time),
         "set_time": format_time(set_time),
-        "is_visible": max_alt > 0,
+        "is_visible": bool(max_alt > 0),
         "best_window": None,  # Could calculate this from good_times
         "constellation": _ra_dec_to_constellation(target_ra_hours, target_dec_deg),
     }
