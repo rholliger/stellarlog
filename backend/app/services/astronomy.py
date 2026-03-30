@@ -42,40 +42,70 @@ def get_moon_phase(target_date: date) -> dict:
     dt = datetime(target_date.year, target_date.month, target_date.day, 12, 0, 0, tzinfo=UTC)
     t = ts.from_datetime(dt)
     
-    # Calculate moon phase angle (0-360 degrees)
-    # 0 = New Moon, 90 = First Quarter, 180 = Full Moon, 270 = Last Quarter
+    # Calculate elongation (angle between sun and moon as seen from earth)
+    # This is 0° at New Moon, 180° at Full Moon
     e = earth.at(t)
     s = e.observe(sun).apparent()
     m = e.observe(moon).apparent()
     
-    # Phase angle: angle sun-earth-moon
-    phase_angle = s.separation_from(m).degrees
+    # Elongation: angle sun-earth-moon (0-180 degrees)
+    elongation = s.separation_from(m).degrees
     
-    # Illuminated fraction: (1 + cos(phase_angle)) / 2
-    illumination = (1 + math.cos(math.radians(phase_angle))) / 2
+    # Illuminated fraction: (1 + cos(elongation)) / 2
+    # At elongation 0° (New): (1 + 1) / 2 = 1.0 = 100%? No wait...
+    # Actually, illumination = (1 - cos(phase_angle)) / 2 where phase_angle = 180° - elongation
+    # Or simpler: illumination = (1 + cos(elongation)) / 2 works if elongation is sun-moon separation
+    # At New Moon: sun and moon together, elongation = 0, cos(0) = 1, illumination = (1+1)/2 = 1.0 = 100%? Wrong!
+    # 
+    # Correct formula: illumination = (1 - cos(phase_angle)) / 2
+    # where phase_angle = 180° - elongation (angle at moon between sun and earth)
+    # At New Moon: elongation = 0, phase_angle = 180°, cos(180°) = -1, illumination = (1-(-1))/2 = 0%
+    # At Full Moon: elongation = 180°, phase_angle = 0°, cos(0°) = 1, illumination = (1-1)/2 = 0%? Wrong!
+    #
+    # Actually the correct formula is:
+    # illumination = (1 + cos(elongation)) / 2
+    # At New Moon: elongation = 0, illumination = 1.0 = 100% - this is wrong!
+    # 
+    # Let me use Skyfield's built-in fraction_illuminated method
+    illumination = almanac.fraction_illuminated(planets, 'moon', t)
     
-    # Determine phase name based on phase angle
-    # 0° = New, 0-90° = Waxing Crescent, 90° = First Quarter, 
-    # 90-180° = Waxing Gibbous, 180° = Full, 180-270° = Waning Gibbous,
-    # 270° = Last Quarter, 270-360° = Waning Crescent
-    if phase_angle < 22.5:
+    # Determine phase name based on elongation
+    # 0° = New Moon (sun and moon together)
+    # 0-90° = Waxing (increasing illumination)
+    # 90° = First Quarter
+    # 90-180° = Waxing Gibbous
+    # 180° = Full Moon (sun and moon opposite)
+    # 180-90° = Waning (decreasing illumination)
+    # 270° = Last Quarter
+    # 270-360° = Waning Crescent
+    #
+    # But we need to determine waxing vs waning
+    # Waxing: illumination increasing (before full)
+    # Waning: illumination decreasing (after full)
+    
+    # Get illumination at previous and next day to determine trend
+    t_prev = ts.from_datetime(dt - timedelta(days=1))
+    t_next = ts.from_datetime(dt + timedelta(days=1))
+    illum_prev = almanac.fraction_illuminated(planets, 'moon', t_prev)
+    illum_next = almanac.fraction_illuminated(planets, 'moon', t_next)
+    
+    is_waxing = illum_next > illumination  # Illumination increasing
+    
+    # Determine phase based on illumination and trend
+    if illumination < 0.02:
         phase_name = "New Moon"
-    elif phase_angle < 67.5:
-        phase_name = "Waxing Crescent"
-    elif phase_angle < 112.5:
-        phase_name = "First Quarter"
-    elif phase_angle < 157.5:
-        phase_name = "Waxing Gibbous"
-    elif phase_angle < 202.5:
-        phase_name = "Full Moon"
-    elif phase_angle < 247.5:
-        phase_name = "Waning Gibbous"
-    elif phase_angle < 292.5:
-        phase_name = "Last Quarter"
-    elif phase_angle < 337.5:
-        phase_name = "Waning Crescent"
+    elif illumination < 0.25:
+        phase_name = "Waxing Crescent" if is_waxing else "Waning Crescent"
+    elif illumination < 0.30:
+        phase_name = "First Quarter" if is_waxing else "Last Quarter"
+    elif illumination < 0.50:
+        phase_name = "Waxing Crescent" if is_waxing else "Waning Crescent"
+    elif illumination < 0.75:
+        phase_name = "Waxing Gibbous" if is_waxing else "Waning Gibbous"
+    elif illumination < 0.98:
+        phase_name = "Waxing Gibbous" if is_waxing else "Waning Gibbous"
     else:
-        phase_name = "New Moon"
+        phase_name = "Full Moon"
     
     return {
         "illumination": round(illumination, 3),
