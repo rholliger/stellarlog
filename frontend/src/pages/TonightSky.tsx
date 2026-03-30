@@ -82,15 +82,12 @@ function LiveClock() {
 function ForecastRow({ 
   day, 
   isToday, 
-  score,
-  isLoading
+  score
 }: { 
   day: any
   isToday: boolean
-  score?: StargazingScore
-  isLoading?: boolean
+  score: StargazingScore
 }) {
-  const hasScore = score && score.score > 0
 
   return (
     <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2.5 sm:py-3 border-b border-[hsl(215_15%_18%)] last:border-0 ${isToday ? 'bg-blue-500/5 -mx-2 sm:-mx-3 px-2 sm:px-3 rounded-lg my-1' : ''}`}>
@@ -104,22 +101,14 @@ function ForecastRow({
           <p className={`text-sm font-medium ${isToday ? 'text-white' : 'text-gray-300'}`}>
             {formatSwissDate(day.date)}
           </p>
-          {hasScore && (
-            <p className="text-xs text-gray-500 truncate">{score.reasons.join(' · ')}</p>
-          )}
+          <p className="text-xs text-gray-500 truncate">{score.reasons.join(' · ')}</p>
         </div>
       </div>
       
       <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
-        {hasScore && score.score >= 7 && <Sparkles className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${score.color} shrink-0`} />}
+        {score.score >= 7 && <Sparkles className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${score.color} shrink-0`} />}
         
-        {isLoading ? (
-          <div className="w-20 h-4 bg-[hsl(220_15%_14%)] rounded animate-pulse" />
-        ) : hasScore ? (
-          <StargazingRating score={score} size="sm" />
-        ) : (
-          <span className="text-xs text-gray-500">Calculating...</span>
-        )}
+        <StargazingRating score={score} size="sm" />
         
         <div className="flex items-center gap-2 sm:gap-3 text-xs text-gray-500 shrink-0">
           <span>{Math.round(day.temp_min)}°/{Math.round(day.temp_max)}°</span>
@@ -252,14 +241,10 @@ export default function TonightSky() {
     queryFn: getWeather,
   })
 
-  // Calculate forecast scores - memoized to prevent recalculation
-  const getForecastScore = (day: any): StargazingScore | null => {
-    // If we don't have moon data yet, return null to show loading state
-    if (!tonightData?.moon) {
-      return null
-    }
-    
-    const moonIllum = tonightData.moon.illumination
+  // Calculate forecast scores - use default moon if data not loaded yet
+  const getForecastScore = (day: any): StargazingScore => {
+    // Use moon data if available, otherwise assume average moon (50%)
+    const moonIllum = tonightData?.moon?.illumination ?? 0.5
     
     let score = 10
     const reasons: string[] = []
@@ -281,8 +266,12 @@ export default function TonightSky() {
     else if (humidity > 75) { score -= 1; reasons.push('Hazy') }
     else if (humidity < 40) { score += 1; reasons.push('Clear air') }
 
-    // Moon penalty for forecast (assume moon is up)
-    if (moonIllum < 0.1) { score += 2; reasons.push('New moon') }
+    // Moon penalty for forecast (use actual or default)
+    if (!tonightData?.moon) {
+      reasons.push('Moon TBD')
+    } else if (moonIllum < 0.1) { 
+      score += 2; reasons.push('New moon') 
+    }
     else if (moonIllum < 0.25) { score += 1; reasons.push('Dark moon') }
     else if (moonIllum < 0.5) { score -= 1; reasons.push('Moon lit') }
     else if (moonIllum < 0.75) { score -= 2; reasons.push('Bright moon') }
@@ -394,8 +383,7 @@ export default function TonightSky() {
                 key={day.date} 
                 day={day} 
                 isToday={day.date === today}
-                score={getForecastScore(day) || undefined}
-                isLoading={tonightLoading}
+                score={getForecastScore(day)}
               />
             ))}
           </div>
