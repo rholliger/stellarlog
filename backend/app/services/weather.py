@@ -52,6 +52,7 @@ async def get_weather_for_date(target_date: date) -> Optional[dict]:
 async def get_7day_forecast() -> list[dict]:
     """
     Returns 7-day weather forecast for Aesch ZH.
+    OpenWeatherMap 5-day/3-hour forecast — extract one entry per day.
     """
     if not OPENWEATHER_API_KEY:
         return _mock_forecast()
@@ -69,20 +70,40 @@ async def get_7day_forecast() -> list[dict]:
             resp = await client.get(url, params=params)
             resp.raise_for_status()
             data = resp.json()
+
+            # Group by date, pick the midday entry (12:00) as the day representative
             daily = {}
-            for entry in data["list"]:
-                d = entry["dt_txt"].split(" ")[0]
-                if d not in daily:
-                    daily[d] = {
-                        "date": d,
+            today = date.today()
+            for entry in data.get("list", []):
+                parts = entry["dt_txt"].split(" ")
+                day_str = parts[0]
+                day_date = datetime.strptime(day_str, "%Y-%m-%d").date()
+
+                # Only include today and future days
+                if day_date < today:
+                    continue
+
+                # Prefer 12:00 entry, but take first available if not present
+                time_str = parts[1]
+                is_noon = time_str == "12:00:00"
+                is_today = day_date == today
+
+                if day_str not in daily or (is_noon and day_str in daily):
+                    daily[day_str] = {
+                        "date": day_str,
                         "temp_min": entry["main"]["temp_min"],
                         "temp_max": entry["main"]["temp_max"],
                         "description": entry["weather"][0]["description"],
                         "cloud_cover": entry["clouds"]["all"],
                         "wind_speed": round(entry["wind"]["speed"] * 3.6, 1),
+                        "humidity": entry["main"]["humidity"],
                         "icon": entry["weather"][0]["icon"],
+                        "dew_point": entry["main"].get("dew_point"),
                     }
-            return list(daily.values())[:7]
+
+            # Sort by date and return max 7 days starting from today
+            result = sorted(daily.values(), key=lambda x: x["date"])[:7]
+            return result
         except Exception:
             return _mock_forecast()
 

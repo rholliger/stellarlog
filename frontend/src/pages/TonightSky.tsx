@@ -7,10 +7,11 @@ function formatSwissDate(dateStr: string): string {
   return `${d}.${m}.${y}`
 }
 
-// NASA Astronomy Picture of the Day — most DSOs link to their Wikipedia/NASA pages
-function dsoWikiUrl(catalogId: string, name: string): string {
-  const encoded = encodeURIComponent(name || catalogId)
-  return `https://en.wikipedia.org/wiki/${encoded}`
+// Wikipedia link: use catalog ID directly (M42, NGC 224, C1) — not the name or type
+function dsoWikiUrl(catalogId: string): string {
+  // Strip any prefix like "NGC " or "M " or "C "
+  const clean = catalogId.replace(/^(NGC|M|C)\s*/i, '').trim()
+  return `https://en.wikipedia.org/wiki/${encodeURIComponent(clean)}`
 }
 
 function moonIllumToStars(illumination: number): { stars: number; label: string; color: string } {
@@ -116,7 +117,7 @@ function TargetCard({ target }: { target: any }) {
   const vis = target.visibility
   const alt = vis?.max_altitude || 0
   const qualityColor = alt > 60 ? 'text-green-400' : alt > 30 ? 'text-yellow-400' : 'text-gray-500'
-  const wikiUrl = dsoWikiUrl(target.catalog_id, target.name || target.common_name || '')
+  const wikiUrl = dsoWikiUrl(target.catalog_id)
 
   return (
     <div className="border border-[hsl(215_15%_18%)] rounded-xl p-4 hover:border-blue-500/30 transition-colors">

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useDropzone } from 'react-dropzone'
 import {
@@ -9,30 +9,54 @@ import {
 import { format } from 'date-fns'
 import {
   Mic, MicOff, Upload, X, Star, MapPin, Calendar,
-  Cloud, Moon as MoonIcon, Camera, Save, Loader2, Image,
+  Moon as MoonIcon, Camera, Save, Loader2, Image,
 } from 'lucide-react'
 
-// Pre-defined common gear tags
-const GEAR_TAGS = [
-  'Seestar S50', 'Canon EOS R5', 'Nikon Z8', 'Sony A7 IV',
-  'William Optics GT81', 'Sky-Watcher EQ6-R', 'iOptron CEM40',
-  'ASI294MC Pro', 'ASI533MC Pro', 'ZWO ASI2600MC', 'UV/IR Cut Filter',
-  'Optolong L-Pro', 'IDAS D1', 'Dithering', 'Gain 121', 'Offset 50',
-  'ISO 1600', 'ISO 3200', '60s', '120s', '300s', 'Dark Frames',
-  'Flat Frames', 'Bias Frames',
+// Pre-defined common gear tags — minimal starter set, custom tags get added at runtime
+const BASE_GEAR_TAGS = [
+  'Seestar S50',
+  'Solar Filter',
+  'EQ Mount',
+  'Dew Lens',
+  'LP Filter',
 ]
+
+function getCustomTags(): string[] {
+  try {
+    const stored = localStorage.getItem('stellarlog_gear_tags')
+    return stored ? JSON.parse(stored) : []
+  } catch { return [] }
+}
+
+function saveCustomTags(tags: string[]) {
+  localStorage.setItem('stellarlog_gear_tags', JSON.stringify(tags))
+}
 
 function TagInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [customTags, setCustomTags] = useState<string[]>(getCustomTags)
   const selected = value ? value.split(',').map(s => s.trim()).filter(Boolean) : []
 
-  const filtered = GEAR_TAGS.filter(
+  const allTags = [...BASE_GEAR_TAGS, ...customTags]
+  const filtered = allTags.filter(
     t => !selected.includes(t) && t.toLowerCase().includes(search.toLowerCase())
   )
 
   const addTag = (tag: string) => {
     const updated = [...selected, tag]
+    onChange(updated.join(', '))
+    setSearch('')
+    setOpen(false)
+  }
+
+  const addCustomTag = () => {
+    const tag = search.trim()
+    if (!tag || selected.includes(tag)) return
+    const updated = [...selected, tag]
+    const newCustom = [...customTags, tag]
+    setCustomTags(newCustom)
+    saveCustomTags(newCustom)
     onChange(updated.join(', '))
     setSearch('')
     setOpen(false)
@@ -46,22 +70,15 @@ function TagInput({ value, onChange }: { value: string; onChange: (v: string) =>
     <div>
       <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
         {selected.map(tag => (
-          <span
-            key={tag}
-            className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/15 text-blue-300 text-xs rounded-full border border-blue-500/30"
-          >
+          <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/15 text-blue-300 text-xs rounded-full border border-blue-500/30">
             {tag}
-            <button
-              type="button"
-              onClick={() => removeTag(tag)}
-              className="hover:text-red-400 transition-colors"
-            >
+            <button type="button" onClick={() => removeTag(tag)} className="hover:text-red-400 transition-colors">
               <X className="w-3 h-3" />
             </button>
           </span>
         ))}
         {selected.length === 0 && (
-          <span className="text-xs text-gray-600">Click to add gear tags…</span>
+          <span className="text-xs text-gray-600">Type to search or add custom tags…</span>
         )}
       </div>
       <div className="relative">
@@ -71,11 +88,21 @@ function TagInput({ value, onChange }: { value: string; onChange: (v: string) =>
           onChange={e => { setSearch(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
-          placeholder="Search or type gear..."
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              if (filtered.length > 0) addTag(filtered[0])
+              else if (search.trim()) addCustomTag()
+            }
+          }}
+          placeholder="Search or type + Enter to add custom…"
           className="w-full"
         />
-        {open && filtered.length > 0 && (
-          <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[hsl(220_15%_11%)] border border-[hsl(215_15%_22%)] rounded-lg shadow-xl max-h-40 overflow-y-auto">
+        {open && (
+          <div
+            className="absolute z-50 top-full left-0 right-0 mt-1 rounded-lg shadow-xl max-h-40 overflow-y-auto"
+            style={{ backgroundColor: 'hsl(220 15% 11%)', border: '1px solid hsl(215 15% 22%)' }}
+          >
             {filtered.map(tag => (
               <button
                 key={tag}
@@ -84,8 +111,18 @@ function TagInput({ value, onChange }: { value: string; onChange: (v: string) =>
                 onMouseDown={() => addTag(tag)}
               >
                 {tag}
+                {!BASE_GEAR_TAGS.includes(tag) && <span className="ml-1 text-xs text-gray-600">custom</span>}
               </button>
             ))}
+            {search.trim() && !allTags.map(t => t.toLowerCase()).includes(search.toLowerCase()) && (
+              <button
+                type="button"
+                className="w-full text-left px-3 py-1.5 text-sm text-blue-400 hover:bg-[hsl(220_15%_18%)] border-t border-[hsl(215_15%_18%)]"
+                onMouseDown={addCustomTag}
+              >
+                + Add &quot;{search.trim()}&quot; as custom tag
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -93,17 +130,8 @@ function TagInput({ value, onChange }: { value: string; onChange: (v: string) =>
   )
 }
 
-function TargetSelector({
-  value,
-  onChange,
-}: {
-  value: string
-  onChange: (id: string, name: string) => void
-}) {
-  const { data: targets } = useQuery({
-    queryKey: ['targets', 'all'],
-    queryFn: getAllTargets,
-  })
+function TargetSelector({ value, onChange }: { value: string; onChange: (id: string, name: string) => void }) {
+  const { data: targets } = useQuery({ queryKey: ['targets', 'all'], queryFn: getAllTargets })
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
 
@@ -126,15 +154,15 @@ function TargetSelector({
         type="text"
         value={open ? search : (selected ? `${selected.catalog_id} — ${selected.name || selected.common_name}` : value)}
         onFocus={() => setOpen(true)}
-        onChange={e => {
-          setSearch(e.target.value)
-          setOpen(true)
-        }}
+        onChange={e => { setSearch(e.target.value); setOpen(true) }}
         placeholder="Search M42, NGC 224, C1…"
         className="w-full"
       />
       {open && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[hsl(220_15%_11%)] border border-[hsl(215_15%_22%)] rounded-lg shadow-xl max-h-60 overflow-y-auto">
+        <div
+          className="absolute z-50 top-full left-0 right-0 mt-1 rounded-lg shadow-xl max-h-60 overflow-y-auto"
+          style={{ backgroundColor: 'hsl(220 15% 11%)', border: '1px solid hsl(215 15% 22%)' }}
+        >
           {(filtered || []).slice(0, 50).map(t => (
             <button
               key={`${t.source_catalog}-${t.catalog_id}`}
@@ -176,22 +204,15 @@ function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) 
         try {
           const { transcript } = await transcribe(new File([blob], 'recording.webm'))
           onTranscript(transcript)
-        } catch {
-          console.error('Transcription failed')
-        }
+        } catch { console.error('Transcription failed') }
         stream.getTracks().forEach(t => t.stop())
       }
       media.start()
       setRecording(true)
-    } catch {
-      console.error('Microphone access denied')
-    }
+    } catch { console.error('Microphone access denied') }
   }
 
-  const stopRecording = () => {
-    mediaRef.current?.stop()
-    setRecording(false)
-  }
+  const stopRecording = () => { mediaRef.current?.stop(); setRecording(false) }
 
   return (
     <button
@@ -209,17 +230,9 @@ function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) 
   )
 }
 
-interface LocalPreview {
-  id: string
-  file: File
-  url: string
-  uploading: boolean
-}
+interface LocalPreview { id: string; file: File; url: string; uploading: boolean }
 
-function PhotoDropzone({ observationId, onUploaded }: {
-  observationId: number | null
-  onUploaded: () => void
-}) {
+function PhotoDropzone({ observationId, onUploaded }: { observationId: number | null; onUploaded: () => void }) {
   const [previews, setPreviews] = useState<LocalPreview[]>([])
 
   const uploadFile = useCallback(async (file: File, previewId: string) => {
@@ -228,8 +241,7 @@ function PhotoDropzone({ observationId, onUploaded }: {
       await uploadPhoto(observationId, file)
       setPreviews(p => p.map(pv => pv.id === previewId ? { ...pv, uploading: false } : pv))
       onUploaded()
-    } catch (err) {
-      console.error('Upload failed', err)
+    } catch {
       setPreviews(p => p.filter(pv => pv.id !== previewId))
     }
   }, [observationId, onUploaded])
@@ -242,53 +254,28 @@ function PhotoDropzone({ observationId, onUploaded }: {
       uploading: false,
     }))
     setPreviews(p => [...p, ...newPreviews])
-
-    if (observationId) {
-      newPreviews.forEach(p => uploadFile(p.file, p.id))
-    }
+    if (observationId) newPreviews.forEach(p => uploadFile(p.file, p.id))
   }, [observationId, uploadFile])
 
-  // When observation is saved and we get an ID, upload all pending
-  useEffect(() => {
-    if (observationId) {
-      const pending = previews.filter(p => !p.uploading && !p.url.includes('observation'))
-      pending.forEach(p => uploadFile(p.file, p.id))
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [observationId])
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'image/*': [] },
-  })
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { 'image/*': [] } })
 
   return (
     <div>
       <label className="flex items-center gap-1.5 text-sm font-medium mb-2">
         <Camera className="w-4 h-4 text-gray-500" />
         Photos
-        {previews.length > 0 && (
-          <span className="text-xs text-gray-600 font-normal">({previews.length})</span>
-        )}
+        {previews.length > 0 && <span className="text-xs text-gray-600 font-normal">({previews.length})</span>}
       </label>
-
-      {/* Drop zone */}
       <div
         {...getRootProps()}
         className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-colors ${
-          isDragActive
-            ? 'border-blue-500 bg-blue-500/5'
-            : 'border-[hsl(215_15%_22%)] hover:border-[hsl(215_15%_30%)] bg-[hsl(220_15%_11%)]'
+          isDragActive ? 'border-blue-500 bg-blue-500/5' : 'border-[hsl(215_15%_22%)] hover:border-[hsl(215_15%_30%)] bg-[hsl(220_15%_11%)]'
         }`}
       >
         <input {...getInputProps()} />
         <Upload className="w-6 h-6 mx-auto mb-1 text-gray-500" />
-        <p className="text-xs text-gray-500">
-          {isDragActive ? 'Drop photos here' : 'Drag & drop or click to select'}
-        </p>
+        <p className="text-xs text-gray-500">{isDragActive ? 'Drop photos here' : 'Drag & drop or click to select'}</p>
       </div>
-
-      {/* Thumbnail grid */}
       {previews.length > 0 && (
         <div className="flex flex-wrap gap-2 mt-3">
           {previews.map(pv => (
@@ -301,10 +288,7 @@ function PhotoDropzone({ observationId, onUploaded }: {
               )}
               <button
                 type="button"
-                onClick={() => {
-                  URL.revokeObjectURL(pv.url)
-                  setPreviews(p => p.filter(x => x.id !== pv.id))
-                }}
+                onClick={() => { URL.revokeObjectURL(pv.url); setPreviews(p => p.filter(x => x.id !== pv.id)) }}
                 className="absolute top-0 right-0 p-0.5 bg-black/70 rounded-bl"
               >
                 <X className="w-3 h-3 text-white" />
@@ -345,7 +329,6 @@ export default function NewObservation() {
   const { id } = useParams<{ id: string }>()
   const isEdit = Boolean(id)
   const navigate = useNavigate()
-  const location = useLocation()
   const queryClient = useQueryClient()
 
   const [form, setForm] = useState({
@@ -370,23 +353,17 @@ export default function NewObservation() {
   useEffect(() => {
     if (existing) {
       setForm({
-        date: existing.date,
-        time: existing.time,
-        target_catalog_id: existing.target_catalog_id || '',
-        target_name: existing.target_name,
-        notes_text: existing.notes_text || '',
-        seeing_rating: existing.seeing_rating || 3,
-        location: existing.location,
-        gear: existing.gear || '',
+        date: existing.date, time: existing.time,
+        target_catalog_id: existing.target_catalog_id || '', target_name: existing.target_name,
+        notes_text: existing.notes_text || '', seeing_rating: existing.seeing_rating || 3,
+        location: existing.location, gear: existing.gear || '',
       })
       setDraftId(existing.id)
     }
   }, [existing])
 
   useEffect(() => {
-    if (form.date) {
-      getMoon(form.date).then(m => setMoonInfo({ illumination: m.illumination, phase_name: m.phase_name }))
-    }
+    if (form.date) getMoon(form.date).then(m => setMoonInfo({ illumination: m.illumination, phase_name: m.phase_name }))
   }, [form.date])
 
   const saveMutation = useMutation({
@@ -402,14 +379,9 @@ export default function NewObservation() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     saveMutation.mutate({
-      date: form.date,
-      time: form.time,
-      target_catalog_id: form.target_catalog_id || null,
-      target_name: form.target_name,
-      notes_text: form.notes_text || null,
-      seeing_rating: form.seeing_rating,
-      location: form.location,
-      gear: form.gear || null,
+      date: form.date, time: form.time, target_catalog_id: form.target_catalog_id || null,
+      target_name: form.target_name, notes_text: form.notes_text || null,
+      seeing_rating: form.seeing_rating, location: form.location, gear: form.gear || null,
     })
   }
 
@@ -419,25 +391,16 @@ export default function NewObservation() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">
-        {isEdit ? 'Edit Session' : 'New Observation Session'}
-      </h1>
+      <h1 className="text-2xl font-bold mb-6">{isEdit ? 'Edit Session' : 'New Observation Session'}</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Date & Time */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="flex items-center gap-1.5 text-sm font-medium mb-1">
-              <Calendar className="w-4 h-4 text-gray-500" />
-              Date
+              <Calendar className="w-4 h-4 text-gray-500" /> Date
             </label>
-            <input
-              type="date"
-              value={form.date}
-              onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-              className="w-full"
-              required
-            />
+            <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="w-full" required />
           </div>
           <div>
             <label className="flex items-center gap-1.5 text-sm font-medium mb-1">
@@ -446,29 +409,19 @@ export default function NewObservation() {
               </span>
               Time
             </label>
-            <input
-              type="time"
-              value={form.time}
-              onChange={e => setForm(f => ({ ...f, time: e.target.value }))}
-              className="w-full"
-              required
-            />
+            <input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} className="w-full" required />
           </div>
         </div>
 
-        {/* Moon */}
+        {/* Moon phase — read-only display */}
         {moonInfo && (
-          <div className="flex items-center gap-2 text-sm text-gray-400 bg-[hsl(220_15%_11%)] border border-[hsl(215_15%_18%)] rounded-lg px-3 py-2">
-            <MoonIcon className="w-4 h-4 text-gray-500" />
-            Moon: {moonInfo.phase_name} ({Math.round(moonInfo.illumination * 100)}% illuminated)
+          <div className="flex items-center gap-2 text-sm text-gray-400 bg-[hsl(220_15%_10%)] rounded-lg px-3 py-2">
+            <MoonIcon className="w-4 h-4 text-blue-400" />
+            Moon phase: {moonInfo.phase_name} — {Math.round(moonInfo.illumination * 100)}% illuminated
           </div>
         )}
 
-        {/* Target */}
-        <TargetSelector
-          value={form.target_catalog_id}
-          onChange={(id, name) => setForm(f => ({ ...f, target_catalog_id: id, target_name: name }))}
-        />
+        <TargetSelector value={form.target_catalog_id} onChange={(id, name) => setForm(f => ({ ...f, target_catalog_id: id, target_name: name }))} />
 
         {/* Notes */}
         <div>
@@ -485,67 +438,36 @@ export default function NewObservation() {
           />
         </div>
 
-        {/* Sky Conditions */}
-        <SeeingRating
-          value={form.seeing_rating}
-          onChange={v => setForm(f => ({ ...f, seeing_rating: v }))}
-        />
+        <SeeingRating value={form.seeing_rating} onChange={v => setForm(f => ({ ...f, seeing_rating: v }))} />
 
         {/* Equipment */}
         <div>
           <label className="flex items-center gap-1.5 text-sm font-medium mb-1">
-            <Camera className="w-4 h-4 text-gray-500" />
-            Equipment
+            <Camera className="w-4 h-4 text-gray-500" /> Equipment
           </label>
-          <TagInput
-            value={form.gear}
-            onChange={v => setForm(f => ({ ...f, gear: v }))}
-          />
+          <TagInput value={form.gear} onChange={v => setForm(f => ({ ...f, gear: v }))} />
         </div>
 
         {/* Location */}
         <div>
           <label className="flex items-center gap-1.5 text-sm font-medium mb-1">
-            <MapPin className="w-4 h-4 text-gray-500" />
-            Location
+            <MapPin className="w-4 h-4 text-gray-500" /> Location
           </label>
-          <input
-            type="text"
-            value={form.location}
-            onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-            placeholder="Aesch ZH"
-            className="w-full"
-          />
+          <input type="text" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Aesch ZH" className="w-full" />
         </div>
 
         {/* Photos */}
-        <PhotoDropzone
-          observationId={draftId}
-          onUploaded={() => {
-            if (draftId) queryClient.invalidateQueries({ queryKey: ['observation', draftId] })
-          }}
-        />
+        <PhotoDropzone observationId={draftId} onUploaded={() => { if (draftId) queryClient.invalidateQueries({ queryKey: ['observation', draftId] }) }} />
 
         {/* Submit */}
         <div className="flex items-center gap-3 pt-4 border-t border-[hsl(215_15%_18%)]">
-          <button
-            type="submit"
-            disabled={saveMutation.isPending}
-            className="btn-primary"
-          >
+          <button type="submit" disabled={saveMutation.isPending} className="btn-primary">
             {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {isEdit ? 'Save Changes' : 'Save Session'}
           </button>
           <button
             type="button"
-            onClick={() => {
-              if (isEdit) {
-                navigate(`/observations/${id}`)
-              } else {
-                // New session: go back to journal, not tonight
-                navigate('/journal')
-              }
-            }}
+            onClick={() => { if (isEdit) navigate(`/observations/${id}`); else navigate('/journal') }}
             className="btn-secondary"
           >
             Cancel

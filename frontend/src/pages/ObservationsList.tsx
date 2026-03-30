@@ -63,10 +63,12 @@ export default function ObservationsList() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             type="text"
-            placeholder="Filter observations..."
+            placeholder="Filter…"
             value={filter}
             onChange={e => setFilter(e.target.value)}
-            className="pl-9 pr-4 py-2 bg-muted border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 w-64"
+            className="pl-9 pr-4 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 w-56 text-gray-200"
+            style={{ backgroundColor: 'hsl(220 15% 11%)', border: '1px solid hsl(215 15% 22%)' }}
+          />
           />
         </div>
       </div>
