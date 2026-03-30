@@ -110,7 +110,6 @@ def get_moon_phase(target_date: date) -> dict:
     return {
         "illumination": round(illumination, 3),
         "phase_name": phase_name,
-        "phase_angle_deg": round(phase_angle, 1),
     }
 
 
