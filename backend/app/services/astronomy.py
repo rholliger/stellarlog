@@ -162,8 +162,16 @@ def get_target_visibility(
     def format_time(t):
         if t is None:
             return None
-        dt = t.utc_datetime()
-        return f"{dt.hour:02d}:{dt.minute:02d}"
+        # Handle both single Time and array Time
+        try:
+            dt = t.utc_datetime()
+            if hasattr(dt, 'hour'):
+                return f"{dt.hour:02d}:{dt.minute:02d}"
+            else:
+                # It's an array, take first element
+                return f"{dt[0].hour:02d}:{dt[0].minute:02d}"
+        except (AttributeError, TypeError):
+            return None
     
     # Find transit time (when highest)
     if best_time:
