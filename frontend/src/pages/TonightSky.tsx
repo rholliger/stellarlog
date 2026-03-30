@@ -181,14 +181,20 @@ function TargetCard({ target, currentTime }: { target: any; currentTime?: string
       )}
 
       {/* Visual visibility timeline */}
-      {vis && vis.rise_time && vis.set_time ? (
+      {vis && vis.max_altitude > 0 ? (
         <div className="mt-2 sm:mt-3">
-          <VisibilityBar
-            riseTime={vis.rise_time}
-            setTime={vis.set_time}
-            transitTime={vis.transit_time}
-            currentTime={currentTime}
-          />
+          {vis.rise_time && vis.set_time ? (
+            <VisibilityBar
+              riseTime={vis.rise_time}
+              setTime={vis.set_time}
+              transitTime={vis.transit_time}
+              currentTime={currentTime}
+            />
+          ) : vis.max_altitude > 20 ? (
+            <p className="text-xs text-green-400/80">Circumpolar - visible all night</p>
+          ) : (
+            <p className="text-xs text-gray-600 italic">Low altitude tonight</p>
+          )}
         </div>
       ) : (
         <p className="mt-2 text-xs text-gray-600 italic">Below horizon tonight</p>
