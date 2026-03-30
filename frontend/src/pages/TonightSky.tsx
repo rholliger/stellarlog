@@ -82,11 +82,13 @@ function LiveClock() {
 function ForecastRow({ 
   day, 
   isToday, 
-  score 
+  score,
+  isLoading
 }: { 
   day: any
   isToday: boolean
-  score?: StargazingScore 
+  score?: StargazingScore
+  isLoading?: boolean
 }) {
   const hasScore = score && score.score > 0
 
@@ -111,10 +113,12 @@ function ForecastRow({
       <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
         {hasScore && score.score >= 7 && <Sparkles className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${score.color} shrink-0`} />}
         
-        {hasScore ? (
+        {isLoading ? (
+          <div className="w-20 h-4 bg-[hsl(220_15%_14%)] rounded animate-pulse" />
+        ) : hasScore ? (
           <StargazingRating score={score} size="sm" />
         ) : (
-          <span className="text-xs text-gray-500">No data</span>
+          <span className="text-xs text-gray-500">Calculating...</span>
         )}
         
         <div className="flex items-center gap-2 sm:gap-3 text-xs text-gray-500 shrink-0">
@@ -242,9 +246,14 @@ export default function TonightSky() {
     queryFn: getWeather,
   })
 
-  // Calculate forecast scores
-  const getForecastScore = (day: any): StargazingScore => {
-    const moonIllum = tonightData?.moon?.illumination || 0.5
+  // Calculate forecast scores - memoized to prevent recalculation
+  const getForecastScore = (day: any): StargazingScore | null => {
+    // If we don't have moon data yet, return null to show loading state
+    if (!tonightData?.moon) {
+      return null
+    }
+    
+    const moonIllum = tonightData.moon.illumination
     
     let score = 10
     const reasons: string[] = []
@@ -379,7 +388,8 @@ export default function TonightSky() {
                 key={day.date} 
                 day={day} 
                 isToday={day.date === today}
-                score={getForecastScore(day)}
+                score={getForecastScore(day) || undefined}
+                isLoading={tonightLoading}
               />
             ))}
           </div>
