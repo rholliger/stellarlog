@@ -108,29 +108,16 @@ async def get_7day_forecast() -> list[dict]:
 
 async def get_astronomy_data(target_date: date) -> Optional[dict]:
     """
-    Fetches astronomy-specific data from Open-Meteo.
-    Includes sun/moon rise/set, moon phase, moon altitude.
+    Fetches moon altitude data from Open-Meteo forecast API.
     """
-    url = "https://api.open-meteo.com/v1/astronomy"
-    params = {
-        "latitude": AESCH_LAT,
-        "longitude": AESCH_LON,
-        "date": target_date.isoformat(),
-        "timezone": "Europe/Zurich",
-    }
-
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
-            resp = await client.get(url, params=params)
-            resp.raise_for_status()
-            data = resp.json()
-            
             # Get hourly moon altitude to determine if moon is up during night
             hourly_url = "https://api.open-meteo.com/v1/forecast"
             hourly_params = {
                 "latitude": AESCH_LAT,
                 "longitude": AESCH_LON,
-                "hourly": ["moon_altitude", "moon_illumination"],
+                "hourly": ["moon_altitude"],
                 "timezone": "Europe/Zurich",
                 "start_date": target_date.isoformat(),
                 "end_date": target_date.isoformat(),
@@ -141,26 +128,18 @@ async def get_astronomy_data(target_date: date) -> Optional[dict]:
             
             hourly = hourly_data.get("hourly", {})
             moon_altitudes = hourly.get("moon_altitude", [])
-            moon_illuminations = hourly.get("moon_illumination", [])
             
-            # Calculate average moon altitude during astronomical night (sun < -12°)
-            # For simplicity, use 22:00-02:00 as proxy for darkest hours
+            # Calculate average moon altitude during night hours (22:00-02:00)
             night_hours = [22, 23, 0, 1, 2]
             night_altitudes = []
             for h in night_hours:
-                idx = h if h >= 22 else h + 24  # Handle midnight wrap
-                if idx < len(moon_altitudes):
-                    night_altitudes.append(moon_altitudes[idx if h >= 22 else h])
+                idx = h if h < len(moon_altitudes) else h - 24
+                if 0 <= idx < len(moon_altitudes):
+                    night_altitudes.append(moon_altitudes[idx])
             
             avg_moon_alt = sum(night_altitudes) / len(night_altitudes) if night_altitudes else 0
             
             return {
-                "sunrise": data.get("sunrise", ""),
-                "sunset": data.get("sunset", ""),
-                "moonrise": data.get("moonrise", ""),
-                "moonset": data.get("moonset", ""),
-                "moon_phase": data.get("moon_phase", 0),
-                "moon_illumination": moon_illuminations[12] if len(moon_illuminations) > 12 else 0,  # Noon value
                 "moon_altitude_night": avg_moon_alt,
             }
         except Exception as e:
