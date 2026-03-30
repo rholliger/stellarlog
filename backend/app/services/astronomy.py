@@ -6,7 +6,7 @@ Location: Aesch ZH — lat=47.468°N, lon=8.066°E
 
 import ephem
 import math
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 # Observer for Aesch ZH
 OBSERVER_LAT = "47.468"
@@ -27,52 +27,52 @@ def _observer_for(dt: datetime) -> ephem.Observer:
 def get_moon_phase(target_date: date) -> dict:
     """
     Returns moon illumination and phase name for a given date.
-    Uses ephem's moon phase calculation.
+    Uses ephem's built-in phase calculation.
     """
     dt = datetime(target_date.year, target_date.month, target_date.day, 21, 0, 0)
     o = _observer_for(dt)
     moon = ephem.Moon(o)
-    sun = ephem.Sun(o)
     
     # Get illumination percentage (0-100)
     illumination_pct = moon.phase
     illumination = illumination_pct / 100.0
     
-    # Calculate elongation (angle between moon and sun)
-    # This tells us waxing (0-180) vs waning (180-360)
-    elongation = math.degrees(ephem.separation(moon, sun))
+    # Get the next new moon and full moon to determine phase
+    # This is more reliable than elongation for phase naming
+    next_new = ephem.next_new_moon(o.date)
+    next_full = ephem.next_full_moon(o.date)
+    prev_new = ephem.previous_new_moon(o.date)
+    prev_full = ephem.previous_full_moon(o.date)
     
-    # Determine phase name based on illumination and elongation
-    if illumination < 0.02:
+    # Calculate days since last new moon and full moon
+    days_since_new = o.date - prev_new
+    days_since_full = o.date - prev_full
+    days_to_new = next_new - o.date
+    days_to_full = next_full - o.date
+    
+    # Determine phase based on proximity to new/full moon and illumination
+    if days_since_new < 1 or days_to_new < 1:
         phase_name = "New Moon"
-    elif elongation < 90:
-        # Waxing (sunrise side illuminated)
-        if illumination < 0.25:
-            phase_name = "Waxing Crescent"
-        elif illumination < 0.50:
-            phase_name = "First Quarter"
-        else:
-            phase_name = "Waxing Gibbous"
-    elif elongation < 135:
-        # Near full
+    elif days_since_new < 3.5:
+        phase_name = "Waxing Crescent"
+    elif days_since_new < 4.5:
+        phase_name = "First Quarter"
+    elif days_to_full > 3.5:
+        phase_name = "Waxing Gibbous"
+    elif days_to_full < 1.5 or days_since_full < 1.5:
         phase_name = "Full Moon"
-    elif elongation < 270:
-        # Waning (sunset side illuminated)
-        if illumination > 0.75:
-            phase_name = "Waning Gibbous"
-        elif illumination > 0.50:
-            phase_name = "Last Quarter"
-        else:
-            phase_name = "Waning Crescent"
+    elif days_since_full < 4.5:
+        phase_name = "Waning Gibbous"
+    elif days_since_full < 5.5:
+        phase_name = "Last Quarter"
     else:
-        # Near new
         phase_name = "Waning Crescent"
 
     return {
         "illumination": round(illumination, 3),
         "phase_name": phase_name,
-        "phase_angle_deg": round(illumination * 360, 1),
-        "elongation_deg": round(elongation, 1),
+        "days_since_new": round(days_since_new, 1),
+        "days_to_full": round(days_to_full, 1),
     }
 
 
