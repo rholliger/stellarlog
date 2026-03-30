@@ -240,15 +240,15 @@ def calculate_stargazing_score(weather: dict, moon_illumination: float, moon_alt
                 reasons.append("Dark moon")
             elif 'quarter' in phase_lower:
                 score += 0
-                reasons.append(phase_name)
+                reasons.append(moon_phase_name)
             elif 'gibbous' in phase_lower:
                 score -= 1
-                reasons.append(phase_name)
+                reasons.append(moon_phase_name)
             elif 'full' in phase_lower:
                 score -= 3
                 reasons.append("Full moon")
             else:
-                reasons.append(phase_name)
+                reasons.append(moon_phase_name)
         else:
             # Fall back to illumination-based scoring
             if moon_illumination < 0.1:
