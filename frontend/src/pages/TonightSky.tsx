@@ -12,7 +12,6 @@ function formatSwissDate(dateStr: string): string {
   return `${d}.${m}.${y}`
 }
 
-// Wikipedia link for DSO objects
 function dsoWikiUrl(catalogId: string): string {
   const clean = catalogId.trim()
   const caldwellMatch = clean.match(/^C\s*(\d+)$/i)
@@ -23,24 +22,24 @@ function dsoWikiUrl(catalogId: string): string {
 }
 
 function moonIllumToStars(illumination: number): { stars: number; label: string; color: string } {
-  if (illumination < 0.1) return { stars: 5, label: 'Perfect darkness', color: 'text-green-400' }
-  if (illumination < 0.25) return { stars: 4, label: 'Dark moon', color: 'text-green-400' }
-  if (illumination < 0.5) return { stars: 3, label: 'Moderate moonlight', color: 'text-yellow-400' }
-  if (illumination < 0.75) return { stars: 2, label: 'Bright moon', color: 'text-orange-400' }
-  return { stars: 1, label: 'Full moon', color: 'text-red-400' }
+  if (illumination < 0.1) return { stars: 5, label: 'Perfect', color: 'text-green-400' }
+  if (illumination < 0.25) return { stars: 4, label: 'Dark', color: 'text-green-400' }
+  if (illumination < 0.5) return { stars: 3, label: 'Moderate', color: 'text-yellow-400' }
+  if (illumination < 0.75) return { stars: 2, label: 'Bright', color: 'text-orange-400' }
+  return { stars: 1, label: 'Full', color: 'text-red-400' }
 }
 
 function MoonBadge({ illumination }: { illumination: number }) {
   const { stars, label, color } = moonIllumToStars(illumination)
   const emoji = illumination < 0.1 ? '🌑' : illumination < 0.25 ? '🌒' : illumination < 0.45 ? '🌓' : illumination < 0.55 ? '🌕' : illumination < 0.75 ? '🌖' : '🌗'
   return (
-    <div className="flex items-center gap-3 bg-[hsl(220_15%_11%)] border border-[hsl(215_15%_18%)] rounded-xl px-4 py-3 hover:border-[hsl(215_15%_25%)] transition-colors">
-      <span className="text-2xl">{emoji}</span>
+    <div className="flex items-center gap-2 sm:gap-3 bg-[hsl(220_15%_11%)] border border-[hsl(215_15%_18%)] rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 hover:border-[hsl(215_15%_25%)] transition-colors">
+      <span className="text-xl sm:text-2xl">{emoji}</span>
       <div>
         <p className="text-sm font-medium text-gray-200">{Math.round(illumination * 100)}% illuminated</p>
         <div className="flex items-center gap-1 mt-0.5">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Star key={i} className={`w-3 h-3 ${i < stars ? color : 'text-gray-700'}`} fill={i < stars ? 'currentColor' : 'none'} />
+            <Star key={i} className={`w-2.5 h-2.5 sm:w-3 sm:h-3 ${i < stars ? color : 'text-gray-700'}`} fill={i < stars ? 'currentColor' : 'none'} />
           ))}
           <span className={`text-xs ml-1 ${color}`}>{label}</span>
         </div>
@@ -52,11 +51,11 @@ function MoonBadge({ illumination }: { illumination: number }) {
 function LiveClock() {
   const { currentTime, isNight } = useLiveSky()
   return (
-    <div className="flex items-center gap-2 text-sm text-gray-400">
-      <Clock className="w-4 h-4" />
+    <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-400">
+      <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
       <span>{currentTime}</span>
-      <span className={`w-2 h-2 rounded-full ${isNight ? 'bg-blue-400' : 'bg-yellow-400'}`} />
-      <span className="text-xs">{isNight ? 'Night' : 'Day'}</span>
+      <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${isNight ? 'bg-blue-400' : 'bg-yellow-400'}`} />
+      <span className="hidden sm:inline text-xs">{isNight ? 'Night' : 'Day'}</span>
     </div>
   )
 }
@@ -66,8 +65,8 @@ function stargazingScore(day: any, moonIllum?: number): { score: number; stars: 
   const reasons: string[] = []
 
   const cloudCover = day.cloud_cover || 100
-  if (cloudCover < 20) { score += 3; reasons.push('Clear skies') }
-  else if (cloudCover < 50) { score += 1; reasons.push('Patchy clouds') }
+  if (cloudCover < 20) { score += 3; reasons.push('Clear') }
+  else if (cloudCover < 50) { score += 1; reasons.push('Patchy') }
   else if (cloudCover < 80) { score -= 3; reasons.push('Cloudy') }
   else { score -= 6; reasons.push('Overcast') }
 
@@ -76,10 +75,10 @@ function stargazingScore(day: any, moonIllum?: number): { score: number; stars: 
   else if (wind < 15) reasons.push('Calm')
 
   const dew = day.dew_point || day.dewpoint_celsius
-  if (dew != null && dew > 10) { score -= 1; reasons.push('Dew risk') }
+  if (dew != null && dew > 10) { score -= 1; reasons.push('Dew') }
 
   const temp = (day.temp_min + day.temp_max) / 2
-  if (temp < 0) { score -= 1; reasons.push('Frost risk') }
+  if (temp < 0) { score -= 1; reasons.push('Frost') }
   else if (temp > 5 && temp < 20) score += 1
 
   if (moonIllum != null) {
@@ -101,9 +100,9 @@ function ForecastRow({ day, isToday, moonIllum }: { day: any; isToday: boolean; 
   const isGood = stars >= 4
 
   return (
-    <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-3 border-b border-[hsl(215_15%_18%)] last:border-0 ${isToday ? 'bg-blue-500/5 -mx-3 px-3 rounded-lg my-1' : ''}`}>
-      <div className="flex items-center gap-3 min-w-0">
-        {isToday && <span className="shrink-0 text-xs font-medium text-blue-400 bg-blue-500/15 px-2 py-0.5 rounded">Today</span>}
+    <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2.5 sm:py-3 border-b border-[hsl(215_15%_18%)] last:border-0 ${isToday ? 'bg-blue-500/5 -mx-2 sm:-mx-3 px-2 sm:px-3 rounded-lg my-1' : ''}`}>
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        {isToday && <span className="shrink-0 text-xs font-medium text-blue-400 bg-blue-500/15 px-1.5 sm:px-2 py-0.5 rounded">Today</span>}
         <div className="min-w-0">
           <p className={`text-sm font-medium ${isToday ? 'text-white' : 'text-gray-300'}`}>
             {formatSwissDate(day.date)}
@@ -111,21 +110,18 @@ function ForecastRow({ day, isToday, moonIllum }: { day: any; isToday: boolean; 
           <p className="text-xs text-gray-500 truncate">{reasons.join(' · ')}</p>
         </div>
       </div>
-      <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-        {isGood && <Sparkles className={`w-4 h-4 ${color} shrink-0`} />}
+      <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
+        {isGood && <Sparkles className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${color} shrink-0`} />}
         <div className="flex items-center gap-0.5 shrink-0">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Star key={i} className={`w-3.5 h-3.5 ${i < stars ? color : 'text-gray-700'}`} fill={i < stars ? 'currentColor' : 'none'} />
+            <Star key={i} className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${i < stars ? color : 'text-gray-700'}`} fill={i < stars ? 'currentColor' : 'none'} />
           ))}
         </div>
-        <span className={`text-xs font-medium ${color} shrink-0 w-16 text-right`}>{label}</span>
-        <div className="flex items-center gap-3 text-xs text-gray-500 shrink-0">
+        <span className={`text-xs font-medium ${color} shrink-0 w-14 sm:w-16 text-right`}>{label}</span>
+        <div className="flex items-center gap-2 sm:gap-3 text-xs text-gray-500 shrink-0">
           <span>{Math.round(day.temp_min)}°/{Math.round(day.temp_max)}°</span>
           <span className="flex items-center gap-0.5"><Cloud className="w-3 h-3" />{day.cloud_cover}%</span>
-          <span className="flex items-center gap-0.5"><Wind className="w-3 h-3" />{Math.round(day.wind_speed)}</span>
-          {(day.dew_point || day.dewpoint_celsius) != null && (
-            <span className="flex items-center gap-0.5"><Droplets className="w-3 h-3" />{Math.round(day.dew_point || day.dewpoint_celsius)}°</span>
-          )}
+          <span className="hidden sm:flex items-center gap-0.5"><Wind className="w-3 h-3" />{Math.round(day.wind_speed)}</span>
         </div>
       </div>
     </div>
@@ -140,53 +136,55 @@ function TargetCard({ target, currentTime }: { target: any; currentTime?: string
   const isCurrentlyVisible = vis?.is_visible && alt > 20
 
   return (
-    <div className="group border border-[hsl(215_15%_18%)] rounded-xl p-4 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/5 hover:-translate-y-0.5 transition-all duration-200 bg-[hsl(220_15%_8%)]">
+    <div className="group border border-[hsl(215_15%_18%)] rounded-xl p-3 sm:p-4 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/5 active:scale-[0.99] transition-all duration-200 bg-[hsl(220_15%_8%)]">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-mono text-blue-400 font-medium">{target.catalog_id}</p>
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <p className="font-mono text-blue-400 font-medium text-sm sm:text-base">{target.catalog_id}</p>
             {isCurrentlyVisible && (
-              <span className="text-xs px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded-full border border-green-500/30">
-                Visible now
+              <span className="text-xs px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded-full border border-green-500/30 shrink-0">
+                Now
               </span>
             )}
             {target.type && (
-              <span className="text-xs px-1.5 py-0.5 bg-[hsl(220_15%_14%)] text-gray-500 rounded">{target.type}</span>
+              <span className="hidden sm:inline text-xs px-1.5 py-0.5 bg-[hsl(220_15%_14%)] text-gray-500 rounded">{target.type}</span>
             )}
           </div>
-          <p className="text-sm font-medium mt-0.5">{target.name || target.common_name}</p>
+          <p className="text-sm font-medium mt-0.5 truncate">{target.name || target.common_name}</p>
           {target.constellation && <p className="text-xs text-gray-500">{target.constellation}</p>}
         </div>
         <div className={`text-right shrink-0 ${qualityColor}`}>
-          <p className="text-lg font-bold">{alt > 0 ? `${alt.toFixed(0)}°` : '—'}</p>
-          <p className="text-xs opacity-60">max alt</p>
+          <p className="text-base sm:text-lg font-bold">{alt > 0 ? `${alt.toFixed(0)}°` : '—'}</p>
+          <p className="text-xs opacity-60">max</p>
         </div>
       </div>
 
       {target.description && (
-        <p className="text-xs text-gray-500 mt-2 line-clamp-2">{target.description}</p>
+        <p className="text-xs text-gray-500 mt-1.5 sm:mt-2 line-clamp-2">{target.description}</p>
       )}
 
       {/* Visual visibility timeline */}
       {vis && (
-        <VisibilityBar
-          riseTime={vis.rise_time}
-          setTime={vis.set_time}
-          transitTime={vis.transit_time}
-          currentTime={currentTime}
-        />
+        <div className="mt-2 sm:mt-3">
+          <VisibilityBar
+            riseTime={vis.rise_time}
+            setTime={vis.set_time}
+            transitTime={vis.transit_time}
+            currentTime={currentTime}
+          />
+        </div>
       )}
 
       {/* Quick actions */}
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-[hsl(215_15%_14%)]">
-        <div className="flex gap-3 text-xs text-gray-500">
+      <div className="flex items-center justify-between mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-[hsl(215_15%_14%)]">
+        <div className="flex gap-2 sm:gap-3 text-xs text-gray-500">
           {target.magnitude != null && <span>Mag {target.magnitude}</span>}
           {target.size_arcmin != null && <span>{target.size_arcmin}'</span>}
         </div>
         <div className="flex items-center gap-2">
           <Link
             to={`/new?target=${encodeURIComponent(target.catalog_id)}&name=${encodeURIComponent(target.name || target.common_name || '')}`}
-            className="text-xs px-2 py-1 bg-blue-500/20 text-blue-400 rounded border border-blue-500/30 hover:bg-blue-500/30 transition-colors opacity-0 group-hover:opacity-100"
+            className="text-xs px-2 py-1 bg-blue-500/20 text-blue-400 rounded border border-blue-500/30 hover:bg-blue-500/30 transition-colors sm:opacity-0 sm:group-hover:opacity-100"
           >
             Log
           </Link>
@@ -194,7 +192,7 @@ function TargetCard({ target, currentTime }: { target: any; currentTime?: string
             href={wikiUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-400 transition-colors"
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-400 transition-colors p-1"
           >
             <ExternalLink className="w-3 h-3" />
           </a>
@@ -219,13 +217,13 @@ export default function TonightSky() {
   return (
     <div>
       {/* Header with live clock */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4 mb-4 sm:mb-6">
         <div>
-          <h1 className="text-2xl font-bold mb-1 flex items-center gap-2">
-            <Star className="w-6 h-6 text-blue-400" />
+          <h1 className="text-xl sm:text-2xl font-bold mb-0.5 sm:mb-1 flex items-center gap-2">
+            <Star className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400" />
             Tonight's Sky
           </h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-gray-500 text-xs sm:text-sm">
             {formatSwissDate(today)} · Aesch ZH
           </p>
         </div>
@@ -234,23 +232,24 @@ export default function TonightSky() {
 
       {/* Moon */}
       {moonLoading ? (
-        <div className="h-[72px] bg-[hsl(220_15%_11%)] rounded-xl animate-pulse" />
+        <div className="h-[60px] sm:h-[72px] bg-[hsl(220_15%_11%)] rounded-xl animate-pulse" />
       ) : moon ? (
         <MoonBadge illumination={moon.illumination} />
       ) : null}
 
       {/* Current conditions */}
       {currentWeather && (
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="mt-3 sm:mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
           {[
-            { icon: Thermometer, label: 'Temp', value: `${Math.round(currentWeather.temperature)}°C` },
-            { icon: Cloud, label: 'Clouds', value: `${currentWeather.cloud_cover}%` },
-            { icon: Wind, label: 'Wind', value: `${Math.round(currentWeather.wind_speed)} km/h` },
-            { icon: Droplets, label: 'Dew Point', value: currentWeather.dew_point != null ? `${Math.round(currentWeather.dew_point)}°C` : '—' },
-          ].map(({ icon: Icon, label, value }) => (
-            <div key={label} className="bg-[hsl(220_15%_11%)] border border-[hsl(215_15%_18%)] rounded-xl px-3 py-2.5 hover:border-[hsl(215_15%_25%)] transition-colors">
-              <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
-                <Icon className="w-3.5 h-3.5" /> {label}
+            { icon: Thermometer, label: 'Temp', value: `${Math.round(currentWeather.temperature)}°C`, shortValue: `${Math.round(currentWeather.temperature)}°` },
+            { icon: Cloud, label: 'Clouds', value: `${currentWeather.cloud_cover}%`, shortValue: `${currentWeather.cloud_cover}%` },
+            { icon: Wind, label: 'Wind', value: `${Math.round(currentWeather.wind_speed)} km/h`, shortValue: `${Math.round(currentWeather.wind_speed)}` },
+            { icon: Droplets, label: 'Dew', value: currentWeather.dew_point != null ? `${Math.round(currentWeather.dew_point)}°C` : '—', shortValue: currentWeather.dew_point != null ? `${Math.round(currentWeather.dew_point)}°` : '—' },
+          ].map(({ icon: Icon, label, value, shortValue }) => (
+            <div key={label} className="bg-[hsl(220_15%_11%)] border border-[hsl(215_15%_18%)] rounded-xl px-2.5 sm:px-3 py-2 sm:py-2.5 hover:border-[hsl(215_15%_25%)] transition-colors">
+              <div className="flex items-center gap-1 text-xs text-gray-500 mb-0.5 sm:mb-1">
+                <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                <span className="hidden sm:inline">{label}</span>
               </div>
               <p className="font-semibold text-sm">{value}</p>
             </div>
@@ -260,14 +259,14 @@ export default function TonightSky() {
 
       {/* 7-day forecast */}
       {forecastLoading ? (
-        <div className="mt-6 h-[200px] bg-[hsl(220_15%_10%)] rounded-xl animate-pulse" />
+        <div className="mt-4 sm:mt-6 h-[150px] sm:h-[200px] bg-[hsl(220_15%_10%)] rounded-xl animate-pulse" />
       ) : forecast && forecast.length > 0 ? (
-        <div className="mt-6">
-          <h2 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
-            <Eye className="w-4 h-4" />
-            7-Day Stargazing Forecast
+        <div className="mt-4 sm:mt-6">
+          <h2 className="text-xs sm:text-sm font-medium text-gray-400 mb-2 sm:mb-3 flex items-center gap-2">
+            <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            7-Day Forecast
           </h2>
-          <div className="bg-[hsl(220_15%_10%)] border border-[hsl(215_15%_18%)] rounded-xl px-3 sm:px-4 hover:border-[hsl(215_15%_22%)] transition-colors">
+          <div className="bg-[hsl(220_15%_10%)] border border-[hsl(215_15%_18%)] rounded-xl px-2 sm:px-4 hover:border-[hsl(215_15%_22%)] transition-colors">
             {forecast.map(day => (
               <ForecastRow key={day.date} day={day} isToday={day.date === today} moonIllum={moonIllum} />
             ))}
@@ -276,17 +275,17 @@ export default function TonightSky() {
       ) : null}
 
       {/* Best targets */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Eye className="w-5 h-5 text-blue-400" />
-            Best Targets Tonight
+      <div className="mt-6 sm:mt-8">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h2 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+            <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+            Best Targets
           </h2>
-          <span className="text-sm text-gray-500">{goodTargets.length} visible above 20°</span>
+          <span className="text-xs sm:text-sm text-gray-500">{goodTargets.length} visible</span>
         </div>
 
         {targetsLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
             {[...Array(4)].map((_, i) => (
               <TargetCardSkeleton key={i} />
             ))}
@@ -294,7 +293,7 @@ export default function TonightSky() {
         ) : goodTargets.length === 0 ? (
           <EmptyState type="targets" />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
             {goodTargets.map(target => (
               <TargetCard key={`${target.catalog_id}-${target.source_catalog}`} target={target} currentTime={currentTime} />
             ))}
