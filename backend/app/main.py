@@ -448,22 +448,23 @@ def get_best_targets_tonight(
     """
     Returns the best DSO targets visible tonight from Aesch ZH.
     Filters to targets that are actually observable (above horizon, decent altitude).
+    Uses parallel processing for faster calculations.
     """
     from datetime import date
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     today = date.today()
     
     with get_cursor() as cur:
         targets = []
         for table in ["messier", "caldwell", "ngc_flags"]:
-            cur.execute(f"SELECT * FROM {table} WHERE ra_hours IS NOT NULL")
+            cur.execute(f"SELECT * FROM {table} WHERE ra_hours IS NOT NULL AND dec_deg IS NOT NULL")
             for row in cur.fetchall():
                 targets.append(dict_from_row(row))
 
-    # Calculate visibility for each target
-    visible_targets = []
-    for t in targets:
+    def calc_visibility(t):
+        """Calculate visibility for a single target."""
         if not t.get("ra_hours") or not t.get("dec_deg"):
-            continue
+            return None
             
         vis = astronomy.get_target_visibility(
             t["ra_hours"],
@@ -473,11 +474,28 @@ def get_best_targets_tonight(
             t.get("catalog_id", ""),
         )
         
-        # Only include targets that are actually visible tonight
+        # Only return if target meets minimum altitude
         if vis["max_altitude"] >= min_altitude:
             t["visibility"] = vis
             t["score"] = vis["max_altitude"] if vis["is_visible"] else vis["max_altitude"] * 0.5
-            visible_targets.append(t)
+            return t
+        return None
+
+    # Calculate visibility in parallel using thread pool
+    visible_targets = []
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        # Submit all tasks
+        future_to_target = {executor.submit(calc_visibility, t): t for t in targets}
+        
+        # Collect results as they complete
+        for future in as_completed(future_to_target):
+            result = future.result()
+            if result:
+                visible_targets.append(result)
+                # Early exit if we have enough targets
+                if len(visible_targets) >= limit * 2:  # Get 2x limit for better sorting
+                    executor.shutdown(wait=False)
+                    break
 
     # Sort by score (highest altitude = best)
     visible_targets.sort(key=lambda x: x["score"], reverse=True)
