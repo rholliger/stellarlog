@@ -4,7 +4,7 @@ Location: Aesch ZH — lat=47.468°N, lon=8.066°E
 """
 
 import math
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from skyfield.api import Loader, wgs84
 from skyfield import almanac
 
@@ -23,6 +23,9 @@ AESCH_ELEV = 432  # meters
 # Create timescale
 ts = load.timescale()
 
+# UTC timezone
+UTC = timezone.utc
+
 
 def get_observer(dt: datetime):
     """Get Skyfield observer for Aesch ZH."""
@@ -36,7 +39,7 @@ def get_moon_phase(target_date: date) -> dict:
     Returns accurate moon phase using Skyfield.
     """
     # Use noon UTC for the date
-    dt = datetime(target_date.year, target_date.month, target_date.day, 12, 0, 0)
+    dt = datetime(target_date.year, target_date.month, target_date.day, 12, 0, 0, tzinfo=UTC)
     t = ts.from_datetime(dt)
     
     # Calculate moon phase angle (0-360 degrees)
@@ -97,8 +100,8 @@ def get_target_visibility(
     from skyfield.api import Star
     target = Star(ra_hours=target_ra_hours, dec_degrees=target_dec_deg)
     
-    # Start of observation night (6 PM local)
-    dt_start = datetime(target_date.year, target_date.month, target_date.day, 18, 0, 0)
+    # Start of observation night (6 PM local = 4 PM UTC for Zurich)
+    dt_start = datetime(target_date.year, target_date.month, target_date.day, 16, 0, 0, tzinfo=UTC)
     t0 = ts.from_datetime(dt_start)
     t1 = ts.from_datetime(dt_start + timedelta(hours=18))  # Next day noon
     
@@ -141,7 +144,7 @@ def get_target_visibility(
         transit_time = format_time(best_time)
     
     # Current altitude at noon
-    t_noon = ts.from_datetime(datetime(target_date.year, target_date.month, target_date.day, 12, 0, 0))
+    t_noon = ts.from_datetime(datetime(target_date.year, target_date.month, target_date.day, 12, 0, 0, tzinfo=UTC))
     astrometric = observer.at(t_noon).observe(target)
     alt, az, dist = astrometric.apparent().altaz()
     
