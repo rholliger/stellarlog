@@ -174,7 +174,7 @@ def get_target_visibility(
             return None
     
     # Find transit time (when highest)
-    if best_time:
+    if best_time is not None:
         transit_time = format_time(best_time)
     
     # Current altitude at noon
