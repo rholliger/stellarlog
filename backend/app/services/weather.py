@@ -108,43 +108,71 @@ async def get_7day_forecast() -> list[dict]:
 
 async def get_astronomy_data(target_date: date) -> Optional[dict]:
     """
-    Fetches moon altitude data from Open-Meteo forecast API.
+    Calculates sun/moon rise/set and moon altitude using Skyfield.
     """
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        try:
-            # Get hourly moon altitude to determine if moon is up during night
-            hourly_url = "https://api.open-meteo.com/v1/forecast"
-            hourly_params = {
-                "latitude": AESCH_LAT,
-                "longitude": AESCH_LON,
-                "hourly": ["moon_altitude"],
-                "timezone": "Europe/Zurich",
-                "start_date": target_date.isoformat(),
-                "end_date": target_date.isoformat(),
-            }
-            hourly_resp = await client.get(hourly_url, params=hourly_params)
-            hourly_resp.raise_for_status()
-            hourly_data = hourly_resp.json()
+    try:
+        from skyfield.api import wgs84
+        from skyfield import almanac
+        
+        topos = wgs84.latlon(AESCH_LAT, AESCH_LON, elevation_m=AESCH_ELEV)
+        observer = earth + topos
+        
+        # Time range for the date
+        dt_start = datetime(target_date.year, target_date.month, target_date.day, 0, 0, 0, tzinfo=UTC)
+        t0 = ts.from_datetime(dt_start)
+        t1 = ts.from_datetime(dt_start + timedelta(days=1))
+        
+        # Find sun rise/set
+        sun_times, sun_events = almanac.find_discrete(t0, t1, almanac.sunrise_sunset(planets, topos))
+        
+        sun_rise = None
+        sun_set = None
+        for t, e in zip(sun_times, sun_events):
+            if e == 1:  # Sunrise
+                sun_rise = t.utc_datetime()
+            else:  # Sunset
+                sun_set = t.utc_datetime()
+        
+        # Find moon rise/set
+        moon_times, moon_events = almanac.find_discrete(t0, t1, almanac.moonrise_moonset(planets, topos))
+        
+        moon_rise = None
+        moon_set = None
+        for t, e in zip(moon_times, moon_events):
+            if e == 1:  # Moonrise
+                moon_rise = t.utc_datetime()
+            else:  # Moonset
+                moon_set = t.utc_datetime()
+        
+        # Calculate average moon altitude during night hours (22:00-02:00)
+        night_altitudes = []
+        for hour in [22, 23, 0, 1, 2]:
+            dt = datetime(target_date.year, target_date.month, target_date.day, hour, 0, 0, tzinfo=UTC)
+            if hour < 22:
+                dt = dt + timedelta(days=1)
+            t = ts.from_datetime(dt)
             
-            hourly = hourly_data.get("hourly", {})
-            moon_altitudes = hourly.get("moon_altitude", [])
-            
-            # Calculate average moon altitude during night hours (22:00-02:00)
-            night_hours = [22, 23, 0, 1, 2]
-            night_altitudes = []
-            for h in night_hours:
-                idx = h if h < len(moon_altitudes) else h - 24
-                if 0 <= idx < len(moon_altitudes):
-                    night_altitudes.append(moon_altitudes[idx])
-            
-            avg_moon_alt = sum(night_altitudes) / len(night_altitudes) if night_altitudes else 0
-            
-            return {
-                "moon_altitude_night": avg_moon_alt,
-            }
-        except Exception as e:
-            print(f"Astronomy fetch error: {e}")
-            return None
+            astrometric = observer.at(t).observe(moon)
+            alt, _, _ = astrometric.apparent().altaz()
+            night_altitudes.append(alt.degrees)
+        
+        avg_moon_alt = sum(night_altitudes) / len(night_altitudes) if night_altitudes else 0
+        
+        def format_dt(dt):
+            if dt is None:
+                return None
+            return f"{dt.hour:02d}:{dt.minute:02d}"
+        
+        return {
+            "sun_rise": format_dt(sun_rise),
+            "sun_set": format_dt(sun_set),
+            "moon_rise": format_dt(moon_rise),
+            "moon_set": format_dt(moon_set),
+            "moon_altitude_night": avg_moon_alt,
+        }
+    except Exception as e:
+        print(f"Astronomy calculation error: {e}")
+        return None
 
 
 def calculate_stargazing_score(weather: dict, moon_illumination: float, moon_altitude_night: float = 0, moon_phase_name: str = None) -> dict:

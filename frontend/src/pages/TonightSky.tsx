@@ -365,6 +365,24 @@ export default function TonightSky() {
               {tonightScore.reasons.slice(0, 3).join(' · ')}
             </p>
           )}
+          
+          {/* Sun/Moon rise/set */}
+          {tonightData?.astronomy && (
+            <div className="mt-3 pt-3 border-t border-[hsl(215_15%_18%)] flex flex-wrap gap-3 text-xs">
+              {tonightData.astronomy.sun_set && (
+                <span className="text-orange-400">🌅 Sunset {tonightData.astronomy.sun_set}</span>
+              )}
+              {tonightData.astronomy.sun_rise && (
+                <span className="text-yellow-400">🌄 Sunrise {tonightData.astronomy.sun_rise}</span>
+              )}
+              {tonightData.astronomy.moon_rise && (
+                <span className="text-gray-400">🌙 Moonrise {tonightData.astronomy.moon_rise}</span>
+              )}
+              {tonightData.astronomy.moon_set && (
+                <span className="text-gray-500">🌑 Moonset {tonightData.astronomy.moon_set}</span>
+              )}
+            </div>
+          )}
         </div>
       ) : null}
 
