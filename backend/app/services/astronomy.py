@@ -27,29 +27,34 @@ def _observer_for(dt: datetime) -> ephem.Observer:
 def get_moon_phase(target_date: date) -> dict:
     """
     Returns moon illumination and phase name for a given date.
+    Uses ephem's moon phase calculation which accounts for waxing/waning.
     """
     dt = datetime(target_date.year, target_date.month, target_date.day, 21, 0, 0)
     o = _observer_for(dt)
     moon = ephem.Moon(o)
-    sun = ephem.Sun(o)
-
-    # Illumination fraction (0.0 - 1.0)
-    illumination = moon.phase / 100.0
-
-    # Phase name
-    if illumination < 0.02:
+    
+    # Get illumination percentage (0-100)
+    illumination_pct = moon.phase
+    illumination = illumination_pct / 100.0
+    
+    # Get moon age (days since new moon, 0-29.5)
+    # This tells us waxing (0-14.75) vs waning (14.75-29.5)
+    moon_age = moon.age
+    
+    # Determine phase name based on age and illumination
+    if moon_age < 1:
         phase_name = "New Moon"
-    elif illumination < 0.25:
+    elif moon_age < 6:
         phase_name = "Waxing Crescent"
-    elif illumination < 0.45:
+    elif moon_age < 9:
         phase_name = "First Quarter"
-    elif illumination < 0.55:
+    elif moon_age < 14:
         phase_name = "Waxing Gibbous"
-    elif illumination < 0.75:
+    elif moon_age < 16:
         phase_name = "Full Moon"
-    elif illumination < 0.92:
+    elif moon_age < 22:
         phase_name = "Waning Gibbous"
-    elif illumination < 0.98:
+    elif moon_age < 25:
         phase_name = "Last Quarter"
     else:
         phase_name = "Waning Crescent"
@@ -57,7 +62,8 @@ def get_moon_phase(target_date: date) -> dict:
     return {
         "illumination": round(illumination, 3),
         "phase_name": phase_name,
-        "phase_angle_deg": round(moon.phase / 100 * 360, 1),
+        "phase_angle_deg": round(illumination * 360, 1),
+        "moon_age_days": round(moon_age, 1),
     }
 
 
