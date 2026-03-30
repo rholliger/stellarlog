@@ -80,7 +80,7 @@ export default function ObservationsList() {
           <Telescope className="w-12 h-12 mx-auto mb-4 opacity-30" />
           <p>No observations yet.</p>
           <Link to="/new" className="text-primary hover:underline mt-2 inline-block">
-            Log your first session →
+            Log your first session &rarr;
           </Link>
         </div>
       )}
