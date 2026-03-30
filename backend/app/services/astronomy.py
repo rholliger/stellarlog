@@ -124,7 +124,8 @@ def get_target_visibility(
     """
     Calculate altitude, azimuth, rise/set times for a target from Aesch ZH.
     """
-    observer = earth + wgs84.latlon(AESCH_LAT, AESCH_LON, elevation_m=AESCH_ELEV)
+    topos = wgs84.latlon(AESCH_LAT, AESCH_LON, elevation_m=AESCH_ELEV)
+    observer = earth + topos
     
     # Create a fixed body at the given RA/Dec
     from skyfield.api import Star
@@ -134,10 +135,6 @@ def get_target_visibility(
     dt_start = datetime(target_date.year, target_date.month, target_date.day, 16, 0, 0, tzinfo=UTC)
     t0 = ts.from_datetime(dt_start)
     t1 = ts.from_datetime(dt_start + timedelta(hours=18))  # Next day noon
-    
-    # Find rise, culmination, set times
-    f = almanac.dark_twilight_day(planets, observer)
-    times, events = almanac.find_discrete(t0, t1, f)
     
     # Calculate altitude at different times to find max
     max_alt = -90
