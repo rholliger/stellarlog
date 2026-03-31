@@ -1,6 +1,6 @@
-import { useQuery, useQueries } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { getBestTonight, getTonightAstronomy, getForecast, getWeather, getMoon } from '@/lib/api'
+import { getBestTonight, getTonightAstronomy, getForecast, getWeather } from '@/lib/api'
 import { useLiveSky } from '@/hooks/useLiveSky'
 import { Moon, Cloud, Star, Eye, Wind, Thermometer, Droplets, Sparkles, ExternalLink, Clock } from 'lucide-react'
 import { VisibilityBar } from '@/components/VisibilityBar'
@@ -37,11 +37,6 @@ interface StargazingScore {
   color: string
   reasons: string[]
   verdict: string
-}
-
-interface MoonData {
-  illumination: number
-  phase_name: string
 }
 
 function StargazingRating({ score, size = 'md' }: { score: StargazingScore; size?: 'sm' | 'md' | 'lg' }) {
@@ -86,59 +81,20 @@ function LiveClock() {
 
 function ForecastRow({ 
   day, 
-  isToday, 
-  moonData
+  isToday
 }: { 
   day: any
   isToday: boolean
-  moonData?: MoonData
 }) {
-  // Calculate score based on weather and moon
-  const score: StargazingScore = (() => {
-    let score = 10
-    const reasons: string[] = []
-
-    const cloudCover = day.cloud_cover || 100
-    if (cloudCover < 10) { score += 3; reasons.push('Crystal clear') }
-    else if (cloudCover < 25) { score += 2; reasons.push('Clear') }
-    else if (cloudCover < 50) { score += 0; reasons.push('Patchy') }
-    else if (cloudCover < 75) { score -= 3; reasons.push('Cloudy') }
-    else { score -= 6; reasons.push('Overcast') }
-
-    const wind = day.wind_speed || 0
-    if (wind > 40) { score -= 3; reasons.push('Very windy') }
-    else if (wind > 25) { score -= 1; reasons.push('Breezy') }
-    else if (wind < 10) { score += 1; reasons.push('Calm') }
-
-    const humidity = day.humidity || 50
-    if (humidity > 90) { score -= 2; reasons.push('Poor transparency') }
-    else if (humidity > 75) { score -= 1; reasons.push('Hazy') }
-    else if (humidity < 40) { score += 1; reasons.push('Clear air') }
-
-    // Moon factor - use actual phase name from API
-    if (moonData) {
-      const phase = moonData.phase_name.toLowerCase()
-      if (phase.includes('new')) { score += 2; reasons.push('New moon') }
-      else if (phase.includes('crescent')) { score += 1; reasons.push('Crescent') }
-      else if (phase.includes('quarter')) { score += 0; reasons.push('Quarter') }
-      else if (phase.includes('gibbous')) { score -= 1; reasons.push('Gibbous') }
-      else if (phase.includes('full')) { score -= 2; reasons.push('Full moon') }
-    } else {
-      reasons.push('Moon loading...')
-    }
-
-    score = Math.max(0, Math.min(10, score))
-    const stars = Math.max(1, Math.min(5, Math.round(score / 2)))
-    
-    return {
-      score,
-      stars,
-      label: score >= 9 ? 'Excellent' : score >= 7 ? 'Good' : score >= 5 ? 'Fair' : score >= 3 ? 'Poor' : 'Very Poor',
-      color: score >= 7 ? 'text-green-400' : score >= 5 ? 'text-yellow-400' : score >= 3 ? 'text-orange-400' : 'text-red-400',
-      reasons,
-      verdict: score >= 9 ? 'Excellent' : score >= 7 ? 'Good' : score >= 5 ? 'Fair' : score >= 3 ? 'Poor' : 'Very Poor',
-    }
-  })()
+  // Use pre-calculated score from backend
+  const score: StargazingScore = day.stargazing_score || {
+    score: 5,
+    stars: 3,
+    label: 'Fair',
+    color: 'text-yellow-400',
+    reasons: ['Loading...'],
+    verdict: 'Fair'
+  }
 
   return (
     <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-2.5 sm:py-3 border-b border-[hsl(215_15%_18%)] last:border-0 ${isToday ? 'bg-blue-500/5 -mx-2 sm:-mx-3 px-2 sm:px-3 rounded-lg my-1' : ''}`}>
@@ -154,9 +110,6 @@ function ForecastRow({
           </p>
           <p className="text-xs text-gray-500 truncate">
             {score.reasons.join(' · ')}
-            {moonData && (
-              <span className="ml-2 text-gray-400">{moonIllumToEmoji(moonData.illumination)} {moonData.phase_name}</span>
-            )}
           </p>
         </div>
       </div>
@@ -290,21 +243,7 @@ export default function TonightSky() {
   // Fetch moon phases for each forecast day
   const forecastDays = forecast?.map((day: any) => day.date) || []
   
-  // Use useQueries to fetch all moon phases in parallel (proper hook usage)
-  const moonResults = useQueries({
-    queries: forecastDays.map((date: string) => ({
-      queryKey: ['moon', date],
-      queryFn: () => getMoon(date),
-      enabled: !!date && forecastDays.length > 0,
-    })),
-  })
-  
-  const moonDataMap = forecastDays.reduce((acc: Record<string, MoonData>, date: string, idx: number) => {
-    if (moonResults[idx]?.data) {
-      acc[date] = moonResults[idx].data
-    }
-    return acc
-  }, {})
+
 
   const { data: targets, isLoading: targetsLoading } = useQuery({
     queryKey: ['best-tonight'],
@@ -430,7 +369,6 @@ export default function TonightSky() {
                 key={day.date} 
                 day={day} 
                 isToday={day.date === today}
-                moonData={moonDataMap[day.date]}
               />
             ))}
           </div>
