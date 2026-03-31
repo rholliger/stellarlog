@@ -60,7 +60,7 @@ async def get_7day_forecast() -> list[dict]:
         "daily": ["temperature_2m_min", "temperature_2m_max", "cloud_cover_mean", 
                   "wind_speed_10m_max", "relative_humidity_2m_mean", "dew_point_2m_mean"],
         "timezone": "Europe/Zurich",
-        "forecast_days": 7,
+        "forecast_days": 8,  // Request 8 days so we can filter out today and show 7
     }
 
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -237,23 +237,37 @@ def calculate_stargazing_score(weather: dict, moon_illumination: float, moon_alt
     else:
         # Moon is up - use phase name if available, otherwise fall back to illumination
         if moon_phase_name:
-            # Use the actual phase name from astronomy service
+            # Use the actual phase name from astronomy service with emoji
             phase_lower = moon_phase_name.lower()
+            phase_emoji = {
+                'new': '🌑',
+                'crescent': '🌒',
+                'quarter': '🌓',
+                'gibbous': '🌔',
+                'full': '🌕',
+            }
+            # Find matching emoji
+            emoji = ''
+            for key, em in phase_emoji.items():
+                if key in phase_lower:
+                    emoji = em
+                    break
+            
             if 'new' in phase_lower:
                 score += 2
-                reasons.append("New moon")
+                reasons.append(f"{emoji} New moon" if emoji else "New moon")
             elif 'crescent' in phase_lower:
                 score += 1
-                reasons.append("Dark moon")
+                reasons.append(f"{emoji} Dark moon" if emoji else "Dark moon")
             elif 'quarter' in phase_lower:
                 score += 0
-                reasons.append(moon_phase_name)
+                reasons.append(f"{emoji} {moon_phase_name}" if emoji else moon_phase_name)
             elif 'gibbous' in phase_lower:
                 score -= 1
-                reasons.append(moon_phase_name)
+                reasons.append(f"{emoji} {moon_phase_name}" if emoji else moon_phase_name)
             elif 'full' in phase_lower:
                 score -= 3
-                reasons.append("Full moon")
+                reasons.append(f"{emoji} Full moon" if emoji else "Full moon")
             else:
                 reasons.append(moon_phase_name)
         else:

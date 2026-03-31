@@ -139,9 +139,6 @@ function ForecastRow({
           </p>
           <p className="text-xs text-gray-500 truncate">
             {score.reasons.join(' · ')}
-            {day.moon && (
-              <span className="ml-2 text-gray-400">{moonIllumToEmoji(day.moon.illumination)} {day.moon.phase_name}</span>
-            )}
           </p>
         </div>
       </div>
@@ -366,9 +363,9 @@ export default function TonightSky() {
             { icon: Wind, label: 'Wind', value: `${Math.round(currentWeather.wind_speed)} km/h` },
             { 
               icon: Droplets, 
-              label: 'Dew', 
+              label: 'Dew Point', 
               value: currentWeather.dew_point != null ? `${Math.round(currentWeather.dew_point)}°C` : 'N/A',
-              tooltip: currentWeather.dew_point != null ? 'Dew point temperature' : 'Data not available'
+              tooltip: 'Lower dew point = drier air = better transparency. High dew point = humid/hazy skies.'
             },
           ].map(({ icon: Icon, label, value, tooltip }) => (
             <div 
