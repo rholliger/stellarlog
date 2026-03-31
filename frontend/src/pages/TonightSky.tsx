@@ -12,12 +12,41 @@ function formatSwissDate(dateStr: string): string {
   return `${d}.${m}.${y}`
 }
 
-function dsoWikiUrl(catalogId: string): string {
+function dsoWikiUrl(catalogId: string, name?: string): string {
   const clean = catalogId.trim()
+  
+  // Caldwell objects
   const caldwellMatch = clean.match(/^C\s*(\d+)$/i)
   if (caldwellMatch) {
     return `https://en.wikipedia.org/wiki/Caldwell_${encodeURIComponent(caldwellMatch[1])}`
   }
+  
+  // Messier objects - use Messier_X format for better disambiguation
+  const messierMatch = clean.match(/^M\s*(\d+)$/i)
+  if (messierMatch) {
+    const num = messierMatch[1]
+    // Try common names first, then fall back to Messier_X
+    const commonNames: Record<string, string> = {
+      '1': 'Crab_Nebula',
+      '13': 'Messier_13',  // Hercules Cluster
+      '31': 'Andromeda_Galaxy',
+      '42': 'Orion_Nebula',
+      '45': 'Pleiades',
+      '57': 'Ring_Nebula',
+    }
+    if (commonNames[num]) {
+      return `https://en.wikipedia.org/wiki/${commonNames[num]}`
+    }
+    return `https://en.wikipedia.org/wiki/Messier_${num}`
+  }
+  
+  // NGC objects
+  const ngcMatch = clean.match(/^NGC\s*(\d+)$/i)
+  if (ngcMatch) {
+    return `https://en.wikipedia.org/wiki/NGC_${encodeURIComponent(ngcMatch[1])}`
+  }
+  
+  // Default: use as-is
   return `https://en.wikipedia.org/wiki/${encodeURIComponent(clean.replace(/\s+/g, '_'))}`
 }
 
@@ -110,6 +139,9 @@ function ForecastRow({
           </p>
           <p className="text-xs text-gray-500 truncate">
             {score.reasons.join(' · ')}
+            {day.moon && (
+              <span className="ml-2 text-gray-400">{moonIllumToEmoji(day.moon.illumination)} {day.moon.phase_name}</span>
+            )}
           </p>
         </div>
       </div>
@@ -145,7 +177,7 @@ function TargetCard({ target, currentTime }: { target: any; currentTime?: string
   const vis = target.visibility
   const alt = vis?.max_altitude || 0
   const qualityColor = alt > 60 ? 'text-green-400' : alt > 30 ? 'text-yellow-400' : 'text-gray-500'
-  const wikiUrl = dsoWikiUrl(target.catalog_id)
+  const wikiUrl = dsoWikiUrl(target.catalog_id, target.name || target.common_name)
   const isCurrentlyVisible = vis?.is_visible && alt > 20
 
   return (
@@ -354,21 +386,21 @@ export default function TonightSky() {
         </div>
       )}
 
-      {/* 5-day forecast */}
+      {/* 7-day forecast */}
       {forecastLoading ? (
         <div className="mt-4 sm:mt-6 h-[150px] sm:h-[200px] bg-[hsl(220_15%_10%)] rounded-xl animate-pulse" />
       ) : forecast && forecast.length > 0 ? (
         <div className="mt-4 sm:mt-6">
           <h2 className="text-xs sm:text-sm font-medium text-gray-400 mb-2 sm:mb-3 flex items-center gap-2">
             <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            5-Day Stargazing Forecast
+            7-Day Stargazing Forecast
           </h2>
           <div className="bg-[hsl(220_15%_10%)] border border-[hsl(215_15%_18%)] rounded-xl px-2 sm:px-4 hover:border-[hsl(215_15%_22%)] transition-colors">
-            {forecast.map(day => (
+            {forecast.filter(day => day.date > today).map(day => (
               <ForecastRow 
                 key={day.date} 
                 day={day} 
-                isToday={day.date === today}
+                isToday={false}
               />
             ))}
           </div>

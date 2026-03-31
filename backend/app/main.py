@@ -514,13 +514,13 @@ async def get_current_weather():
 @app.get("/api/weather/forecast")
 async def get_forecast():
     """
-    Returns 7-day weather forecast with stargazing scores.
+    Returns 7-day weather forecast with stargazing scores and moon data.
     """
     from datetime import date, timedelta
     
     forecast_data = await weather.get_7day_forecast()
     
-    # Calculate stargazing score for each day
+    # Calculate stargazing score and add moon data for each day
     for day in forecast_data:
         day_date = date.fromisoformat(day["date"])
         
@@ -536,6 +536,7 @@ async def get_forecast():
         )
         
         day["stargazing_score"] = score_data
+        day["moon"] = moon
     
     return forecast_data
 
