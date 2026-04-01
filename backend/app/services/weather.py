@@ -60,7 +60,7 @@ async def get_7day_forecast() -> list[dict]:
         "daily": ["temperature_2m_min", "temperature_2m_max", "cloud_cover_mean", 
                   "wind_speed_10m_max", "relative_humidity_2m_mean", "dew_point_2m_mean"],
         "timezone": "Europe/Zurich",
-        "forecast_days": 8,  // Request 8 days so we can filter out today and show 7
+        "forecast_days": 8,
     }
 
     async with httpx.AsyncClient(timeout=10.0) as client:
