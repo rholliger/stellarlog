@@ -19,6 +19,7 @@ from app.database import get_connection, get_cursor, dict_from_row, init_db
 from app.schema import (
     ObservationCreate, ObservationUpdate, ObservationResponse,
     PhotoResponse, TargetCatalogItem, MoonResponse, VisibilityResponse,
+    SkyCheckCreate, SkyCheckUpdate, SkyCheckResponse,
 )
 from app.services import astronomy, weather, transcription
 
@@ -144,6 +145,109 @@ def delete_observation(obs_id: int):
     with get_cursor() as cur:
         cur.execute("DELETE FROM observations WHERE id = ?", (obs_id,))
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Sky Checks
+# ---------------------------------------------------------------------------
+
+@app.get("/api/sky-checks", response_model=list[SkyCheckResponse])
+def list_sky_checks(
+    limit: int = Query(30, le=100),
+    offset: int = 0,
+    date: Optional[str] = None,
+):
+    with get_cursor() as cur:
+        sql = "SELECT * FROM sky_checks WHERE 1=1"
+        params = []
+        if date:
+            sql += " AND date = ?"
+            params.append(date)
+        sql += " ORDER BY date DESC, time DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+
+    return [SkyCheckResponse(**dict_from_row(r)) for r in rows]
+
+
+@app.post("/api/sky-checks", response_model=SkyCheckResponse)
+def create_sky_check(sky_check: SkyCheckCreate):
+    with get_cursor() as cur:
+        cur.execute(
+            """INSERT INTO sky_checks
+               (date, time, location, cloud_cover, transparency, seeing,
+                temperature, humidity, wind_speed, moon_phase, moon_visible, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                sky_check.date, sky_check.time, sky_check.location,
+                sky_check.cloud_cover, sky_check.transparency, sky_check.seeing,
+                sky_check.temperature, sky_check.humidity, sky_check.wind_speed,
+                sky_check.moon_phase, 1 if sky_check.moon_visible else 0 if sky_check.moon_visible is not None else None,
+                sky_check.notes,
+            ),
+        )
+        sky_check_id = cur.lastrowid
+
+    return get_sky_check(sky_check_id)
+
+
+@app.get("/api/sky-checks/{sky_check_id}", response_model=SkyCheckResponse)
+def get_sky_check(sky_check_id: int):
+    with get_cursor() as cur:
+        cur.execute("SELECT * FROM sky_checks WHERE id = ?", (sky_check_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "Sky check not found")
+
+    d = dict_from_row(row)
+    # Convert moon_visible from integer to boolean
+    if "moon_visible" in d:
+        d["moon_visible"] = bool(d["moon_visible"])
+    return SkyCheckResponse(**d)
+
+
+@app.put("/api/sky-checks/{sky_check_id}", response_model=SkyCheckResponse)
+def update_sky_check(sky_check_id: int, sky_check: SkyCheckUpdate):
+    existing = get_sky_check(sky_check_id)
+    fields = sky_check.model_dump(exclude_unset=True)
+    if not fields:
+        return existing
+
+    # Handle moon_visible boolean -> int conversion
+    if "moon_visible" in fields:
+        fields["moon_visible"] = 1 if fields["moon_visible"] else 0
+
+    set_parts = [f"{k} = ?" for k in fields.keys()]
+    values = list(fields.values()) + [sky_check_id]
+    with get_cursor() as cur:
+        cur.execute(f"UPDATE sky_checks SET {', '.join(set_parts)} WHERE id = ?", values)
+
+    return get_sky_check(sky_check_id)
+
+
+@app.delete("/api/sky-checks/{sky_check_id}")
+def delete_sky_check(sky_check_id: int):
+    with get_cursor() as cur:
+        cur.execute("DELETE FROM sky_checks WHERE id = ?", (sky_check_id,))
+    return {"ok": True}
+
+
+@app.get("/api/sky-checks/latest")
+def get_latest_sky_check():
+    """Get the most recent sky check for today."""
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT * FROM sky_checks ORDER BY date DESC, time DESC LIMIT 1"
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(404, "No sky checks found")
+
+    d = dict_from_row(row)
+    if "moon_visible" in d:
+        d["moon_visible"] = bool(d["moon_visible"])
+    return SkyCheckResponse(**d)
 
 
 # ---------------------------------------------------------------------------

@@ -106,6 +106,26 @@ CREATE TABLE IF NOT EXISTS custom_targets (
 );
 """
 
+# Sky checks: quick daily visibility logging
+SKY_CHECKS = """
+CREATE TABLE IF NOT EXISTS sky_checks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date DATE NOT NULL,
+    time TIME NOT NULL,
+    location TEXT DEFAULT 'Aesch ZH',
+    cloud_cover INTEGER CHECK(cloud_cover >= 0 AND cloud_cover <= 100),
+    transparency INTEGER CHECK(transparency >= 1 AND transparency <= 5),
+    seeing INTEGER CHECK(seeing >= 1 AND seeing <= 5),
+    temperature REAL,
+    humidity INTEGER CHECK(humidity >= 0 AND humidity <= 100),
+    wind_speed REAL,
+    moon_phase TEXT,
+    moon_visible INTEGER CHECK(moon_visible IN (0, 1)),
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
 ALL_TABLES = [
     OBSERVATIONS,
     PHOTOS,
@@ -113,6 +133,7 @@ ALL_TABLES = [
     CALDWELL,
     NGC_FLAGS,
     CUSTOM_TARGETS,
+    SKY_CHECKS,
 ]
 
 
@@ -217,3 +238,46 @@ class VisibilityResponse(BaseModel):
     transit_altitude: float
     is_visible: bool
     best_window: Optional[str]  # e.g. "22:30 - 03:45"
+
+
+# ---------------------------------------------------------------------------
+# Sky Check models
+# ---------------------------------------------------------------------------
+
+class SkyCheckBase(BaseModel):
+    date: str
+    time: str
+    location: str = "Aesch ZH"
+    cloud_cover: Optional[int] = Field(None, ge=0, le=100)
+    transparency: Optional[int] = Field(None, ge=1, le=5)
+    seeing: Optional[int] = Field(None, ge=1, le=5)
+    temperature: Optional[float] = None
+    humidity: Optional[int] = Field(None, ge=0, le=100)
+    wind_speed: Optional[float] = None
+    moon_phase: Optional[str] = None
+    moon_visible: Optional[bool] = None
+    notes: Optional[str] = None
+
+
+class SkyCheckCreate(SkyCheckBase):
+    pass
+
+
+class SkyCheckUpdate(BaseModel):
+    cloud_cover: Optional[int] = Field(None, ge=0, le=100)
+    transparency: Optional[int] = Field(None, ge=1, le=5)
+    seeing: Optional[int] = Field(None, ge=1, le=5)
+    temperature: Optional[float] = None
+    humidity: Optional[int] = Field(None, ge=0, le=100)
+    wind_speed: Optional[float] = None
+    moon_visible: Optional[bool] = None
+    notes: Optional[str] = None
+
+
+class SkyCheckResponse(SkyCheckBase):
+    id: int
+    moon_visible: Optional[bool] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

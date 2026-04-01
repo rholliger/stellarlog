@@ -1,15 +1,17 @@
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom'
-import { Telescope, List, Plus, Star } from 'lucide-react'
+import { Telescope, List, Plus, Star, Cloud } from 'lucide-react'
 import { ToastProvider } from './components/Toast'
 import ObservationsList from './pages/ObservationsList'
 import ObservationDetail from './pages/ObservationDetail'
 import NewObservation from './pages/NewObservation'
 import TonightSky from './pages/TonightSky'
+import SkyCheck from './pages/SkyCheck'
 
 function NavBar() {
   const location = useLocation()
   const links = [
     { to: '/', label: 'Tonight', icon: Star, shortLabel: 'Tonight' },
+    { to: '/sky-check', label: 'Sky Check', icon: Cloud, shortLabel: 'Check' },
     { to: '/journal', label: 'Journal', icon: List, shortLabel: 'Journal' },
     { to: '/new', label: 'New Session', icon: Plus, shortLabel: 'New' },
   ]
@@ -57,6 +59,7 @@ export default function App() {
           <main className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
             <Routes>
               <Route path="/" element={<TonightSky />} />
+              <Route path="/sky-check" element={<SkyCheck />} />
               <Route path="/journal" element={<ObservationsList />} />
               <Route path="/new" element={<NewObservation />} />
               <Route path="/observations/:id" element={<ObservationDetail />} />

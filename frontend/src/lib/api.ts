@@ -70,6 +70,24 @@ export interface VisibilityInfo {
   constellation: string | null
 }
 
+// Sky Check
+export interface SkyCheck {
+  id: number
+  date: string
+  time: string
+  location: string
+  cloud_cover: number | null
+  transparency: number | null
+  seeing: number | null
+  temperature: number | null
+  humidity: number | null
+  wind_speed: number | null
+  moon_phase: string | null
+  moon_visible: boolean | null
+  notes: string | null
+  created_at: string
+}
+
 // Observations
 export const listObservations = (params?: { limit?: number; target?: string }) =>
   api.get<Observation[]>('/observations', { params }).then(r => r.data)
@@ -124,6 +142,22 @@ export const getWeather = () =>
 
 export const getForecast = () =>
   api.get('/weather/forecast').then(r => r.data)
+
+// Sky Checks
+export const listSkyChecks = (params?: { limit?: number; date?: string }) =>
+  api.get<SkyCheck[]>('/sky-checks', { params }).then(r => r.data)
+
+export const getSkyCheck = (id: number) =>
+  api.get<SkyCheck>(`/sky-checks/${id}`).then(r => r.data)
+
+export const createSkyCheck = (data: Partial<SkyCheck>) =>
+  api.post<SkyCheck>('/sky-checks', data).then(r => r.data)
+
+export const updateSkyCheck = (id: number, data: Partial<SkyCheck>) =>
+  api.put<SkyCheck>(`/sky-checks/${id}`, data).then(r => r.data)
+
+export const deleteSkyCheck = (id: number) =>
+  api.delete(`/sky-checks/${id}`).then(r => r.data)
 
 // Transcription
 export const transcribe = (file: File) => {
