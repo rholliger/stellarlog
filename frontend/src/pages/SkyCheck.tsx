@@ -5,8 +5,8 @@ import { format } from 'date-fns'
 import { useToast } from '@/components/Toast'
 import { createSkyCheck, getMoon, getWeather } from '@/lib/api'
 import {
-  Cloud, Eye, Thermometer, Droplets, Wind, Moon,
-  MapPin, Clock, Save, Loader2, ChevronRight, Check
+  Cloud, Eye, Thermometer, Droplets, Wind, Moon, Info,
+  MapPin, Clock, Save, Loader2, ChevronRight, Check, RefreshCw
 } from 'lucide-react'
 
 interface SkyCheckForm {
@@ -24,11 +24,43 @@ interface SkyCheckForm {
   notes: string
 }
 
-function StarRating({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number | null) => void }) {
+function Tooltip({ text }: { text: string }) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="relative inline-block">
+      <Info 
+        className="w-3.5 h-3.5 text-gray-600 hover:text-gray-400 cursor-help ml-1" 
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+      />
+      {show && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[hsl(220_15%_14%)] border border-[hsl(215_15%_22%)] rounded-lg text-xs text-gray-400 w-48 z-50 shadow-xl">
+          {text}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-[hsl(215_15%_22%)]" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StarRating({ 
+  label, 
+  value, 
+  onChange, 
+  tooltip 
+}: { 
+  label: string
+  value: number | null
+  onChange: (v: number | null) => void
+  tooltip?: string
+}) {
   const labels = ['', 'Poor', 'Below Avg', 'Average', 'Good', 'Excellent']
   return (
     <div className="flex items-center justify-between">
-      <span className="text-sm text-gray-400">{label}</span>
+      <div className="flex items-center">
+        <span className="text-sm text-gray-400">{label}</span>
+        {tooltip && <Tooltip text={tooltip} />}
+      </div>
       <div className="flex items-center gap-2">
         <div className="flex gap-0.5">
           {[1, 2, 3, 4, 5].map(n => (
@@ -58,6 +90,8 @@ function SliderInput({
   max,
   unit,
   icon: Icon,
+  currentValue,
+  onUseCurrent,
 }: {
   label: string
   value: number | null
@@ -66,6 +100,8 @@ function SliderInput({
   max: number
   unit: string
   icon: React.ElementType
+  currentValue?: number | null
+  onUseCurrent?: () => void
 }) {
   return (
     <div>
@@ -74,17 +110,28 @@ function SliderInput({
           <Icon className="w-4 h-4" />
           {label}
         </div>
-        <span className="text-sm font-mono text-blue-400">
-          {value != null ? `${value}${unit}` : '—'}
-        </span>
+        <div className="flex items-center gap-2">
+          {currentValue != null && value !== currentValue && onUseCurrent && (
+            <button
+              type="button"
+              onClick={onUseCurrent}
+              className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Use {currentValue}{unit}
+            </button>
+          )}
+          <span className="text-sm font-mono text-blue-400 min-w-[3rem] text-right">
+            {value != null ? `${value}${unit}` : '—'}
+          </span>
+        </div>
       </div>
       <input
         type="range"
         min={min}
         max={max}
-        value={value ?? ''}
-        onChange={e => onChange(e.target.value ? Number(e.target.value) : null)}
-        onDoubleClick={() => onChange(null)}
+        value={value ?? min}
+        onChange={e => onChange(Number(e.target.value))}
         className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
       />
       <div className="flex justify-between text-xs text-gray-600 mt-0.5">
@@ -100,11 +147,12 @@ export default function SkyCheck() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
 
+  const now = new Date()
   const initialForm: SkyCheckForm = {
-    date: format(new Date(), 'yyyy-MM-dd'),
-    time: format(new Date(), 'HH:mm'),
+    date: format(now, 'yyyy-MM-dd'),
+    time: format(now, 'HH:mm'),
     location: 'Aesch ZH',
-    cloud_cover: null,
+    cloud_cover: 0,
     transparency: null,
     seeing: null,
     temperature: null,
@@ -122,19 +170,19 @@ export default function SkyCheck() {
   const { data: weatherData } = useQuery({
     queryKey: ['weather'],
     queryFn: getWeather,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   })
 
   // Fetch moon phase
   const { data: moonData } = useQuery({
     queryKey: ['moon', form.date],
     queryFn: () => getMoon(form.date),
-    staleTime: 60 * 60 * 1000, // 1 hour
+    staleTime: 60 * 60 * 1000,
   })
 
-  // Auto-fill from weather when available
+  // Auto-fill from weather when available (only on first load)
   useEffect(() => {
-    if (weatherData) {
+    if (weatherData && form.temperature === null) {
       setForm(f => ({
         ...f,
         temperature: weatherData.temperature ?? f.temperature,
@@ -179,16 +227,19 @@ export default function SkyCheck() {
     setForm(f => ({ ...f, [key]: value }))
   }
 
+  // Format date in Swiss format (DD.MM.YYYY)
+  const swissDate = form.date ? format(new Date(form.date), 'dd.MM.yyyy') : ''
+
   return (
     <div className="max-w-lg mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Sky Check</h1>
-          <p className="text-sm text-gray-500 mt-1">Log tonight's conditions</p>
+          <p className="text-sm text-gray-500 mt-1">Quick conditions check</p>
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-500 bg-[hsl(220_15%_10%)] px-3 py-1.5 rounded-lg border border-[hsl(215_15%_18%)]">
           <Clock className="w-4 h-4" />
-          {form.date} {form.time}
+          {swissDate} {form.time}
         </div>
       </div>
 
@@ -208,7 +259,7 @@ export default function SkyCheck() {
           />
         </div>
 
-        {/* Cloud Cover */}
+        {/* Cloud Cover - now starts at 0 */}
         <SliderInput
           label="Cloud Cover"
           value={form.cloud_cover}
@@ -219,7 +270,7 @@ export default function SkyCheck() {
           icon={Cloud}
         />
 
-        {/* Transparency & Seeing */}
+        {/* Transparency & Seeing with tooltips */}
         <div className="bg-[hsl(220_15%_10%)] rounded-lg p-4 border border-[hsl(215_15%_18%)] space-y-3">
           <div className="flex items-center gap-1.5 text-sm text-gray-400 mb-2">
             <Eye className="w-4 h-4" />
@@ -229,17 +280,26 @@ export default function SkyCheck() {
             label="Transparency"
             value={form.transparency}
             onChange={v => setField('transparency', v)}
+            tooltip="How clear is the atmosphere? Affected by haze, dust, humidity. 5 = crystal clear, 1 = very hazy."
           />
           <StarRating
             label="Seeing"
             value={form.seeing}
             onChange={v => setField('seeing', v)}
+            tooltip="How stable is the atmosphere? Affects star twinkling and fine detail. 5 = rock steady, 1 = lots of twinkling."
           />
         </div>
 
-        {/* Weather */}
+        {/* Weather - with current values displayed */}
         <div className="bg-[hsl(220_15%_10%)] rounded-lg p-4 border border-[hsl(215_15%_18%)] space-y-4">
-          <div className="text-sm text-gray-400">Weather</div>
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-400">Weather</div>
+            {weatherData && (
+              <div className="text-xs text-gray-500">
+                Current: {weatherData.temperature}°C, {weatherData.wind_speed} km/h
+              </div>
+            )}
+          </div>
           
           <SliderInput
             label="Temperature"
@@ -249,6 +309,8 @@ export default function SkyCheck() {
             max={40}
             unit="°C"
             icon={Thermometer}
+            currentValue={weatherData?.temperature}
+            onUseCurrent={() => setField('temperature', weatherData?.temperature)}
           />
 
           <SliderInput
@@ -259,6 +321,8 @@ export default function SkyCheck() {
             max={100}
             unit="%"
             icon={Droplets}
+            currentValue={weatherData?.humidity}
+            onUseCurrent={() => setField('humidity', weatherData?.humidity)}
           />
 
           <SliderInput
@@ -269,6 +333,8 @@ export default function SkyCheck() {
             max={100}
             unit=" km/h"
             icon={Wind}
+            currentValue={weatherData?.wind_speed}
+            onUseCurrent={() => setField('wind_speed', weatherData?.wind_speed)}
           />
         </div>
 
@@ -345,7 +411,7 @@ export default function SkyCheck() {
           </button>
           <button
             type="button"
-            onClick={() => navigate('/journal')}
+            onClick={() => navigate('/sky-checks')}
             className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-300 transition-colors"
           >
             View History

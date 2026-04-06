@@ -258,7 +258,7 @@ def calculate_stargazing_score(weather: dict, moon_illumination: float, moon_alt
                 reasons.append(f"{emoji} New moon" if emoji else "New moon")
             elif 'crescent' in phase_lower:
                 score += 1
-                reasons.append(f"{emoji} Dark moon" if emoji else "Dark moon")
+                reasons.append(f"{emoji} {moon_phase_name}" if emoji else moon_phase_name)
             elif 'quarter' in phase_lower:
                 score += 0
                 reasons.append(f"{emoji} {moon_phase_name}" if emoji else moon_phase_name)
