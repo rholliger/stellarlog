@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
-import { listSkyChecks, deleteSkyCheck } from '@/lib/api'
+import { listSkyChecks, deleteSkyCheck, type SkyCheck } from '@/lib/api'
 import { useToast } from '@/components/Toast'
 import {
   Cloud, Eye, Thermometer, Droplets, Wind, Moon,
@@ -48,7 +48,7 @@ export default function SkyCheckList() {
     }
   }
 
-  const getConditionEmoji = (check: typeof skyChecks?.[0]) => {
+  const getConditionEmoji = (check: SkyCheck) => {
     if (check.cloud_cover === 0) return '✨'
     if (check.cloud_cover && check.cloud_cover < 30) return '🌤️'
     if (check.cloud_cover && check.cloud_cover < 70) return '☁️'
