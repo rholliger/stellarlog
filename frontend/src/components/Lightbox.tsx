@@ -47,6 +47,26 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
     resetUITimer()
   }, [photos.length, resetUITimer])
 
+  // Start UI timer on open
+  useEffect(() => {
+    if (isOpen) {
+      resetUITimer()
+    }
+    return () => {
+      if (uiTimeoutRef.current) {
+        clearTimeout(uiTimeoutRef.current)
+      }
+    }
+  }, [isOpen, resetUITimer])
+
+  // Reset index when opening
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentIndex(initialIndex)
+    }
+  }, [initialIndex, isOpen])
+
+  // Early return AFTER all hooks
   if (!isOpen) return null
 
   const current = photos[currentIndex]
@@ -147,23 +167,6 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
     if (e.key === 'ArrowLeft') goPrev()
     resetUITimer()
   }
-
-  // Start UI timer on open
-  useEffect(() => {
-    if (isOpen) {
-      resetUITimer()
-    }
-    return () => {
-      if (uiTimeoutRef.current) {
-        clearTimeout(uiTimeoutRef.current)
-      }
-    }
-  }, [isOpen, resetUITimer])
-
-  // Reset index when opening
-  useEffect(() => {
-    setCurrentIndex(initialIndex)
-  }, [initialIndex, isOpen])
 
   const imageStyle: React.CSSProperties = {
     transform: `translateX(${dragOffset}px)`,
