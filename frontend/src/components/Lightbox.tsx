@@ -19,144 +19,139 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
   const [showUI, setShowUI] = useState(true)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState(0)
+  const [direction, setDirection] = useState(0) // -1 for prev, 1 for next
   
-  const containerRef = useRef<HTMLDivElement>(null)
+  const imageContainerRef = useRef<HTMLDivElement>(null)
   const touchStartX = useRef(0)
-  const touchStartY = useRef(0)
   const uiTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const lastTapTime = useRef(0)
 
-  // Auto-hide UI after inactivity - define FIRST before any callbacks use it
+  // Reset index when opening
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentIndex(initialIndex)
+      setShowUI(true)
+      resetUITimer()
+    }
+  }, [isOpen, initialIndex])
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (uiTimeoutRef.current) {
+        clearTimeout(uiTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  // Early return AFTER all hooks
+  if (!isOpen || photos.length === 0) return null
+
+  const current = photos[currentIndex]
+  const hasMultiple = photos.length > 1
+
+  // Auto-hide UI after inactivity
   const resetUITimer = useCallback(() => {
     if (uiTimeoutRef.current) {
       clearTimeout(uiTimeoutRef.current)
     }
-    setShowUI(true)
     uiTimeoutRef.current = setTimeout(() => {
       setShowUI(false)
     }, 3000)
   }, [])
 
   const goNext = useCallback(() => {
+    if (!hasMultiple) return
+    setDirection(1)
     setCurrentIndex(i => (i + 1) % photos.length)
+    setDragOffset(0)
     resetUITimer()
-  }, [photos.length, resetUITimer])
+  }, [hasMultiple, photos.length, resetUITimer])
 
   const goPrev = useCallback(() => {
+    if (!hasMultiple) return
+    setDirection(-1)
     setCurrentIndex(i => (i - 1 + photos.length) % photos.length)
+    setDragOffset(0)
     resetUITimer()
-  }, [photos.length, resetUITimer])
+  }, [hasMultiple, photos.length, resetUITimer])
 
-  // Start UI timer on open
-  useEffect(() => {
-    if (isOpen) {
-      resetUITimer()
-    }
-    return () => {
-      if (uiTimeoutRef.current) {
-        clearTimeout(uiTimeoutRef.current)
-      }
-    }
-  }, [isOpen, resetUITimer])
-
-  // Reset index when opening
-  useEffect(() => {
-    if (isOpen) {
-      setCurrentIndex(initialIndex)
-    }
-  }, [initialIndex, isOpen])
-
-  // Early return AFTER all hooks
-  if (!isOpen) return null
-
-  const current = photos[currentIndex]
-
-  // Handle tap to toggle UI
-  const handleContainerClick = (e: React.MouseEvent | React.TouchEvent) => {
-    // Don't toggle if clicking on buttons
-    if ((e.target as HTMLElement).closest('button')) return
-    
-    const now = Date.now()
-    const timeSinceLastTap = now - lastTapTime.current
-    lastTapTime.current = now
-    
-    // Double tap detection (optional - could add zoom later)
-    if (timeSinceLastTap < 300) {
-      // Double tap - could zoom
-      return
-    }
-    
-    setShowUI(prev => !prev)
-    if (!showUI) {
-      resetUITimer()
-    }
+  // Toggle UI on tap
+  const handleTap = () => {
+    setShowUI(prev => {
+      const next = !prev
+      if (next) resetUITimer()
+      return next
+    })
   }
 
   // Touch handlers for swipe
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (!hasMultiple) return
     touchStartX.current = e.touches[0].clientX
-    touchStartY.current = e.touches[0].clientY
     setIsDragging(true)
     setDragOffset(0)
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
+    if (!isDragging || !hasMultiple) return
     
     const touchX = e.touches[0].clientX
-    const touchY = e.touches[0].clientY
     const deltaX = touchX - touchStartX.current
-    const deltaY = touchY - touchStartY.current
     
-    // Only handle horizontal swipes (ignore vertical scrolling)
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      e.preventDefault()
-      setDragOffset(deltaX)
-    }
+    // Add resistance at edges
+    const resistance = 0.8
+    setDragOffset(deltaX * resistance)
   }
 
   const handleTouchEnd = () => {
-    if (!isDragging) return
+    if (!isDragging || !hasMultiple) return
     setIsDragging(false)
     
-    const threshold = 50 // Minimum swipe distance
+    const threshold = 80
+    const velocity = dragOffset
     
-    if (dragOffset > threshold) {
+    if (velocity > threshold) {
       goPrev()
-    } else if (dragOffset < -threshold) {
+    } else if (velocity < -threshold) {
       goNext()
+    } else {
+      // Snap back
+      setDragOffset(0)
     }
     
-    setDragOffset(0)
     resetUITimer()
   }
 
-  // Mouse drag handlers for desktop swipe
+  // Mouse drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (!hasMultiple) return
+    e.preventDefault()
     touchStartX.current = e.clientX
     setIsDragging(true)
     setDragOffset(0)
   }
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return
+    if (!isDragging || !hasMultiple) return
+    e.preventDefault()
     const deltaX = e.clientX - touchStartX.current
-    setDragOffset(deltaX)
+    setDragOffset(deltaX * 0.8)
   }
 
   const handleMouseUp = () => {
-    if (!isDragging) return
+    if (!isDragging || !hasMultiple) return
     setIsDragging(false)
     
-    const threshold = 50
+    const threshold = 80
     
     if (dragOffset > threshold) {
       goPrev()
     } else if (dragOffset < -threshold) {
       goNext()
+    } else {
+      setDragOffset(0)
     }
     
-    setDragOffset(0)
     resetUITimer()
   }
 
@@ -168,95 +163,164 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
     resetUITimer()
   }
 
-  const imageStyle: React.CSSProperties = {
-    transform: `translateX(${dragOffset}px)`,
-    transition: isDragging ? 'none' : 'transform 0.3s ease-out',
-    cursor: isDragging ? 'grabbing' : 'grab',
+  // Calculate transforms for current and adjacent images
+  const getImageStyle = (index: number): React.CSSProperties => {
+    const isCurrent = index === currentIndex
+    const isPrev = index === (currentIndex - 1 + photos.length) % photos.length
+    const isNext = index === (currentIndex + 1) % photos.length
+    
+    if (!isCurrent && !isPrev && !isNext) {
+      return { display: 'none' }
+    }
+
+    let translateX = 0
+    let opacity = 1
+    let zIndex = 1
+
+    if (isCurrent) {
+      translateX = dragOffset
+      zIndex = 10
+      if (Math.abs(dragOffset) > 50) {
+        opacity = 1 - Math.min(Math.abs(dragOffset) / 300, 0.5)
+      }
+    } else if (isPrev) {
+      translateX = dragOffset - window.innerWidth * 0.85
+      if (dragOffset > 0) {
+        translateX += window.innerWidth * 0.85
+        opacity = Math.min(dragOffset / 200, 1)
+        zIndex = 5
+      } else {
+        opacity = 0
+      }
+    } else if (isNext) {
+      translateX = dragOffset + window.innerWidth * 0.85
+      if (dragOffset < 0) {
+        translateX -= window.innerWidth * 0.85
+        opacity = Math.min(Math.abs(dragOffset) / 200, 1)
+        zIndex = 5
+      } else {
+        opacity = 0
+      }
+    }
+
+    return {
+      transform: `translateX(${translateX}px)`,
+      opacity,
+      zIndex,
+      transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease',
+      position: 'absolute' as const,
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }
   }
 
   return (
     <div
-      ref={containerRef}
-      className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center select-none"
-      onClick={handleContainerClick}
+      className="fixed inset-0 z-50 bg-black flex flex-col"
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className={`absolute top-4 right-4 p-2 text-white/70 hover:text-white transition-all z-10 ${
-          showUI ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4 pointer-events-none'
+      {/* Top bar with close button */}
+      <div 
+        className={`absolute top-0 left-0 right-0 z-30 flex items-center justify-between p-4 transition-all duration-300 ${
+          showUI ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'
         }`}
+        style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)' }}
       >
-        <X className="w-6 h-6" />
-      </button>
-
-      {/* Navigation arrows */}
-      {photos.length > 1 && (
-        <>
-          <button
-            onClick={e => { e.stopPropagation(); goPrev() }}
-            className={`absolute left-4 p-2 text-white/70 hover:text-white transition-all ${
-              showUI ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'
-            }`}
-          >
-            <ChevronLeft className="w-8 h-8" />
-          </button>
-          <button
-            onClick={e => { e.stopPropagation(); goNext() }}
-            className={`absolute right-4 p-2 text-white/70 hover:text-white transition-all ${
-              showUI ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'
-            }`}
-          >
-            <ChevronRight className="w-8 h-8" />
-          </button>
-        </>
-      )}
-
-      {/* Swipe hint (only on mobile, fades out) */}
-      {photos.length > 1 && showUI && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none md:hidden">
-          <div className="text-white/20 text-sm animate-pulse">
-            Swipe to navigate
-          </div>
+        <div className="text-white/80 text-sm">
+          {currentIndex + 1} / {photos.length}
         </div>
-      )}
-
-      {/* Image container */}
-      <div
-        className="max-w-[90vw] max-h-[85vh] flex flex-col items-center"
-        onClick={e => e.stopPropagation()}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-      >
-        <img
-          src={current.url}
-          alt={current.original_name || 'Observation photo'}
-          className="max-w-full max-h-[80vh] object-contain rounded-lg"
-          style={imageStyle}
-          draggable={false}
-        />
-        
-        {/* Info bar */}
-        <div 
-          className={`mt-4 text-center text-white/80 transition-all ${
-            showUI ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-          }`}
+        <button
+          onClick={onClose}
+          className="p-2 text-white/70 hover:text-white transition-colors rounded-full hover:bg-white/10"
         >
-          <p className="text-sm">
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+
+      {/* Main image area with tap handler */}
+      <div 
+        className="flex-1 relative overflow-hidden"
+        onClick={handleTap}
+        ref={imageContainerRef}
+      >
+        {/* Navigation arrows - positioned outside image area */}
+        {hasMultiple && (
+          <>
+            <button
+              onClick={(e) => { e.stopPropagation(); goPrev(); }}
+              className={`absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 p-3 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all duration-300 ${
+                showUI ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'
+              }`}
+            >
+              <ChevronLeft className="w-8 h-8" />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); goNext(); }}
+              className={`absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 p-3 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all duration-300 ${
+                showUI ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'
+              }`}
+            >
+              <ChevronRight className="w-8 h-8" />
+            </button>
+          </>
+        )}
+
+        {/* Images container */}
+        <div 
+          className="absolute inset-0 flex items-center justify-center"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
+          {photos.map((photo, index) => (
+            <div
+              key={photo.id}
+              style={getImageStyle(index)}
+            >
+              <img
+                src={photo.url}
+                alt={photo.original_name || `Photo ${index + 1}`}
+                className="max-w-[85vw] max-h-[75vh] object-contain rounded-lg shadow-2xl select-none"
+                draggable={false}
+                style={{ cursor: isDragging ? 'grabbing' : hasMultiple ? 'grab' : 'default' }}
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Swipe hint */}
+        {hasMultiple && showUI && !isDragging && (
+          <div className="absolute bottom-24 left-1/2 -translate-x-1/2 pointer-events-none md:hidden">
+            <div className="text-white/30 text-xs animate-pulse bg-black/50 px-3 py-1.5 rounded-full">
+              Swipe to navigate · Tap to hide
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom info bar */}
+      <div 
+        className={`absolute bottom-0 left-0 right-0 z-30 p-4 transition-all duration-300 ${
+          showUI ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full pointer-events-none'
+        }`}
+        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)' }}
+      >
+        <div className="text-center text-white/80">
+          <p className="text-sm font-medium">
             {current.original_name || `Photo ${currentIndex + 1}`}
           </p>
           <p className="text-xs text-white/50 mt-1">
-            {currentIndex + 1} / {photos.length}
-          </p>
-          <p className="text-xs text-white/30 mt-2">
-            Tap to {showUI ? 'hide' : 'show'} controls
+            Tap image to {showUI ? 'hide' : 'show'} controls
           </p>
         </div>
       </div>
