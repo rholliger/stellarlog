@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { getBestTonight, getTonightAstronomy, getForecast, getWeather } from '@/lib/api'
 import { useLiveSky } from '@/hooks/useLiveSky'
 import { Moon, Cloud, Star, Eye, Wind, Thermometer, Droplets, Sparkles, ExternalLink, Clock } from 'lucide-react'
+import { SkyCheckCardCompact } from '@/components/SkyCheckIntegration'
 import { VisibilityBar } from '@/components/VisibilityBar'
 import { EmptyState } from '@/components/EmptyState'
 import { TargetCardSkeleton } from '@/components/Skeleton'
@@ -301,6 +302,11 @@ export default function TonightSky() {
           </p>
         </div>
         <LiveClock />
+      </div>
+
+      {/* Sky Check - Compact Card */}
+      <div className="mb-3 sm:mb-4">
+        <SkyCheckCardCompact />
       </div>
 
       {/* Tonight's stargazing conditions */}
