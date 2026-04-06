@@ -19,37 +19,18 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
   const [showUI, setShowUI] = useState(true)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState(0)
-  const [direction, setDirection] = useState(0) // -1 for prev, 1 for next
+  const [direction, setDirection] = useState(0)
   
   const imageContainerRef = useRef<HTMLDivElement>(null)
   const touchStartX = useRef(0)
   const uiTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Reset index when opening
-  useEffect(() => {
-    if (isOpen) {
-      setCurrentIndex(initialIndex)
-      setShowUI(true)
-      resetUITimer()
-    }
-  }, [isOpen, initialIndex])
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (uiTimeoutRef.current) {
-        clearTimeout(uiTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  // Early return AFTER all hooks
-  if (!isOpen || photos.length === 0) return null
-
-  const current = photos[currentIndex]
+  // Check if we should render - but DON'T return early (hooks must run)
+  const shouldRender = isOpen && photos.length > 0
+  const current = shouldRender ? photos[currentIndex] : null
   const hasMultiple = photos.length > 1
 
-  // Auto-hide UI after inactivity
+  // Define all callbacks FIRST (before any effects that use them)
   const resetUITimer = useCallback(() => {
     if (uiTimeoutRef.current) {
       clearTimeout(uiTimeoutRef.current)
@@ -75,7 +56,30 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
     resetUITimer()
   }, [hasMultiple, photos.length, resetUITimer])
 
-  // Toggle UI on tap
+  // Reset state when opening
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentIndex(initialIndex)
+      setShowUI(true)
+      setDragOffset(0)
+      setIsDragging(false)
+      resetUITimer()
+    }
+  }, [isOpen, initialIndex, resetUITimer])
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (uiTimeoutRef.current) {
+        clearTimeout(uiTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  // NOW we can return null if not rendering
+  if (!shouldRender) return null
+
+  // Event handlers
   const handleTap = () => {
     setShowUI(prev => {
       const next = !prev
@@ -84,7 +88,6 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
     })
   }
 
-  // Touch handlers for swipe
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!hasMultiple) return
     touchStartX.current = e.touches[0].clientX
@@ -97,8 +100,6 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
     
     const touchX = e.touches[0].clientX
     const deltaX = touchX - touchStartX.current
-    
-    // Add resistance at edges
     const resistance = 0.8
     setDragOffset(deltaX * resistance)
   }
@@ -115,14 +116,12 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
     } else if (velocity < -threshold) {
       goNext()
     } else {
-      // Snap back
       setDragOffset(0)
     }
     
     resetUITimer()
   }
 
-  // Mouse drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!hasMultiple) return
     e.preventDefault()
@@ -155,7 +154,6 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
     resetUITimer()
   }
 
-  // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') onClose()
     if (e.key === 'ArrowRight') goNext()
@@ -163,7 +161,7 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
     resetUITimer()
   }
 
-  // Calculate transforms for current and adjacent images
+  // Calculate transforms for images
   const getImageStyle = (index: number): React.CSSProperties => {
     const isCurrent = index === currentIndex
     const isPrev = index === (currentIndex - 1 + photos.length) % photos.length
@@ -243,13 +241,13 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
         </button>
       </div>
 
-      {/* Main image area with tap handler */}
+      {/* Main image area */}
       <div 
         className="flex-1 relative overflow-hidden"
         onClick={handleTap}
         ref={imageContainerRef}
       >
-        {/* Navigation arrows - positioned outside image area */}
+        {/* Navigation arrows */}
         {hasMultiple && (
           <>
             <button
@@ -317,7 +315,7 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
       >
         <div className="text-center text-white/80">
           <p className="text-sm font-medium">
-            {current.original_name || `Photo ${currentIndex + 1}`}
+            {current?.original_name || `Photo ${currentIndex + 1}`}
           </p>
           <p className="text-xs text-white/50 mt-1">
             Tap image to {showUI ? 'hide' : 'show'} controls
