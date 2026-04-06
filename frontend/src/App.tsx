@@ -12,7 +12,6 @@ function NavBar() {
   const location = useLocation()
   const links = [
     { to: '/', label: 'Tonight', icon: Star, shortLabel: 'Tonight' },
-    { to: '/sky-check', label: 'Sky Check', icon: Cloud, shortLabel: 'Check' },
     { to: '/journal', label: 'Journal', icon: List, shortLabel: 'Journal' },
     { to: '/new', label: 'New Session', icon: Plus, shortLabel: 'New' },
   ]

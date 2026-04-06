@@ -465,7 +465,21 @@ export default function NewObservation() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">{isEdit ? 'Edit Session' : 'New Observation Session'}</h1>
+      <div className="flex items-start justify-between mb-2">
+        <h1 className="text-2xl font-bold">{isEdit ? 'Edit Session' : 'New Observation Session'}</h1>
+      </div>
+      
+      {/* Sky Check shortcut - only show for new sessions */}
+      {!isEdit && (
+        <div className="mb-4">
+          <button
+            onClick={() => navigate('/sky-check')}
+            className="text-sm text-gray-500 hover:text-blue-400 transition-colors flex items-center gap-1"
+          >
+            Just checking conditions? Log sky conditions instead →
+          </button>
+        </div>
+      )}
 
       {/* Draft notice */}
       {showDraftNotice && (
