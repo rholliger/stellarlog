@@ -26,21 +26,7 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
   const uiTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastTapTime = useRef(0)
 
-  if (!isOpen) return null
-
-  const current = photos[currentIndex]
-
-  const goNext = useCallback(() => {
-    setCurrentIndex(i => (i + 1) % photos.length)
-    resetUITimer()
-  }, [photos.length])
-
-  const goPrev = useCallback(() => {
-    setCurrentIndex(i => (i - 1 + photos.length) % photos.length)
-    resetUITimer()
-  }, [photos.length])
-
-  // Auto-hide UI after inactivity
+  // Auto-hide UI after inactivity - define FIRST before any callbacks use it
   const resetUITimer = useCallback(() => {
     if (uiTimeoutRef.current) {
       clearTimeout(uiTimeoutRef.current)
@@ -50,6 +36,20 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
       setShowUI(false)
     }, 3000)
   }, [])
+
+  const goNext = useCallback(() => {
+    setCurrentIndex(i => (i + 1) % photos.length)
+    resetUITimer()
+  }, [photos.length, resetUITimer])
+
+  const goPrev = useCallback(() => {
+    setCurrentIndex(i => (i - 1 + photos.length) % photos.length)
+    resetUITimer()
+  }, [photos.length, resetUITimer])
+
+  if (!isOpen) return null
+
+  const current = photos[currentIndex]
 
   // Handle tap to toggle UI
   const handleContainerClick = (e: React.MouseEvent | React.TouchEvent) => {
