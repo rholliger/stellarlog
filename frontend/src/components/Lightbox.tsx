@@ -161,51 +161,28 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
     resetUITimer()
   }
 
-  // Calculate transforms for images
+  // Calculate transforms for images - simplified natural swipe
   const getImageStyle = (index: number): React.CSSProperties => {
-    const isCurrent = index === currentIndex
-    const isPrev = index === (currentIndex - 1 + photos.length) % photos.length
-    const isNext = index === (currentIndex + 1) % photos.length
+    const diff = index - currentIndex
     
-    if (!isCurrent && !isPrev && !isNext) {
+    // Only render current, prev, and next
+    if (Math.abs(diff) > 1) {
       return { display: 'none' }
     }
 
-    let translateX = 0
-    let opacity = 1
-    let zIndex = 1
-
-    if (isCurrent) {
-      translateX = dragOffset
-      zIndex = 10
-      if (Math.abs(dragOffset) > 50) {
-        opacity = 1 - Math.min(Math.abs(dragOffset) / 300, 0.5)
-      }
-    } else if (isPrev) {
-      translateX = dragOffset - window.innerWidth * 0.85
-      if (dragOffset > 0) {
-        translateX += window.innerWidth * 0.85
-        opacity = Math.min(dragOffset / 200, 1)
-        zIndex = 5
-      } else {
-        opacity = 0
-      }
-    } else if (isNext) {
-      translateX = dragOffset + window.innerWidth * 0.85
-      if (dragOffset < 0) {
-        translateX -= window.innerWidth * 0.85
-        opacity = Math.min(Math.abs(dragOffset) / 200, 1)
-        zIndex = 5
-      } else {
-        opacity = 0
-      }
+    // Base position: current is 0, prev is -100%, next is +100%
+    let translateX = diff * 100 // percentage
+    
+    // Add drag offset for current image
+    if (diff === 0) {
+      translateX = (dragOffset / window.innerWidth) * 100
     }
 
     return {
-      transform: `translateX(${translateX}px)`,
-      opacity,
-      zIndex,
-      transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease',
+      transform: `translateX(${translateX}%)`,
+      opacity: Math.abs(diff) === 1 && Math.abs(dragOffset) < 50 ? 0.3 : 1,
+      zIndex: diff === 0 ? 10 : 5,
+      transition: isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
       position: 'absolute' as const,
       top: 0,
       left: 0,
@@ -214,6 +191,7 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
+      willChange: 'transform',
     }
   }
 
@@ -247,24 +225,30 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
         onClick={handleTap}
         ref={imageContainerRef}
       >
-        {/* Navigation arrows */}
+        {/* Navigation arrows with shadow for visibility on white images */}
         {hasMultiple && (
           <>
             <button
               onClick={(e) => { e.stopPropagation(); goPrev(); }}
-              className={`absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 p-3 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all duration-300 ${
+              className={`absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 p-2 transition-all duration-300 ${
                 showUI ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'
               }`}
+              style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.8))' }}
             >
-              <ChevronLeft className="w-8 h-8" />
+              <div className="p-2 bg-black/40 rounded-full text-white/90 hover:bg-black/60 hover:text-white transition-colors">
+                <ChevronLeft className="w-8 h-8" />
+              </div>
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); goNext(); }}
-              className={`absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 p-3 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-all duration-300 ${
+              className={`absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 p-2 transition-all duration-300 ${
                 showUI ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'
               }`}
+              style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.8))' }}
             >
-              <ChevronRight className="w-8 h-8" />
+              <div className="p-2 bg-black/40 rounded-full text-white/90 hover:bg-black/60 hover:text-white transition-colors">
+                <ChevronRight className="w-8 h-8" />
+              </div>
             </button>
           </>
         )}
@@ -295,15 +279,6 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
             </div>
           ))}
         </div>
-
-        {/* Swipe hint */}
-        {hasMultiple && showUI && !isDragging && (
-          <div className="absolute bottom-24 left-1/2 -translate-x-1/2 pointer-events-none md:hidden">
-            <div className="text-white/30 text-xs animate-pulse bg-black/50 px-3 py-1.5 rounded-full">
-              Swipe to navigate · Tap to hide
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Bottom info bar */}
@@ -316,9 +291,6 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
         <div className="text-center text-white/80">
           <p className="text-sm font-medium">
             {current?.original_name || `Photo ${currentIndex + 1}`}
-          </p>
-          <p className="text-xs text-white/50 mt-1">
-            Tap image to {showUI ? 'hide' : 'show'} controls
           </p>
         </div>
       </div>
