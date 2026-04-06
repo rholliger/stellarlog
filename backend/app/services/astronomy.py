@@ -102,16 +102,13 @@ def get_moon_phase(target_date: date) -> dict:
     is_waxing = illum_next > illumination  # Illumination increasing
     
     # Determine phase based on illumination and trend
+    # Illumination: 0% = New, 50% = Quarter, 100% = Full
     if illumination < 0.02:
         phase_name = "New Moon"
-    elif illumination < 0.25:
+    elif illumination < 0.45:
         phase_name = "Waxing Crescent" if is_waxing else "Waning Crescent"
-    elif illumination < 0.30:
+    elif illumination < 0.55:
         phase_name = "First Quarter" if is_waxing else "Last Quarter"
-    elif illumination < 0.50:
-        phase_name = "Waxing Crescent" if is_waxing else "Waning Crescent"
-    elif illumination < 0.75:
-        phase_name = "Waxing Gibbous" if is_waxing else "Waning Gibbous"
     elif illumination < 0.98:
         phase_name = "Waxing Gibbous" if is_waxing else "Waning Gibbous"
     else:
