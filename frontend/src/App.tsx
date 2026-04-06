@@ -7,7 +7,6 @@ import NewObservation from './pages/NewObservation'
 import TonightSky from './pages/TonightSky'
 import SkyCheck from './pages/SkyCheck'
 import SkyCheckList from './pages/SkyCheckList'
-import SkyCheckOptionsDemo from './pages/SkyCheckOptionsDemo'
 
 function NavBar() {
   const location = useLocation()
@@ -63,7 +62,6 @@ export default function App() {
               <Route path="/" element={<TonightSky />} />
               <Route path="/sky-check" element={<SkyCheck />} />
               <Route path="/sky-checks" element={<SkyCheckList />} />
-              <Route path="/sky-check-options" element={<SkyCheckOptionsDemo />} />
               <Route path="/journal" element={<ObservationsList />} />
               <Route path="/new" element={<NewObservation />} />
               <Route path="/observations/:id" element={<ObservationDetail />} />
