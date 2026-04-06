@@ -3,46 +3,21 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { Cloud, Eye, Check, Plus, ChevronRight, RefreshCw } from 'lucide-react'
-import { listSkyChecks, createSkyCheck, getWeather } from '@/lib/api'
+import { listSkyChecks, createSkyCheck } from '@/lib/api'
 import { useToast } from '@/components/Toast'
 
 // Option 1: Compact Card with Quick Actions
 export function SkyCheckCardCompact() {
   const navigate = useNavigate()
-  const { showToast } = useToast()
-  const queryClient = useQueryClient()
-  
+
   const { data: latestCheck } = useQuery({
     queryKey: ['sky-checks-latest'],
     queryFn: () => listSkyChecks({ limit: 1 }),
     select: (data) => data[0],
   })
 
-  const { data: weather } = useQuery({
-    queryKey: ['weather'],
-    queryFn: getWeather,
-    staleTime: 5 * 60 * 1000,
-  })
-
   const today = format(new Date(), 'yyyy-MM-dd')
   const hasCheckedToday = latestCheck?.date === today
-
-  const quickCheckMutation = useMutation({
-    mutationFn: () => createSkyCheck({
-      date: today,
-      time: format(new Date(), 'HH:mm'),
-      location: 'Aesch ZH',
-      cloud_cover: weather?.cloud_cover ?? 0,
-      temperature: weather?.temperature,
-      humidity: weather?.humidity,
-      wind_speed: weather?.wind_speed,
-      notes: 'Quick check from Tonight page',
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sky-checks'] })
-      showToast('Sky check logged!', 'success')
-    },
-  })
 
   if (hasCheckedToday) {
     return (
@@ -84,21 +59,12 @@ export function SkyCheckCardCompact() {
             <p className="text-xs text-gray-500">Log conditions to track patterns</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => quickCheckMutation.mutate()}
-            disabled={quickCheckMutation.isPending}
-            className="text-xs px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-lg border border-blue-500/30 hover:bg-blue-500/30 transition-colors disabled:opacity-50"
-          >
-            {quickCheckMutation.isPending ? '...' : 'Quick Log'}
-          </button>
-          <button
-            onClick={() => navigate('/sky-check')}
-            className="text-xs px-3 py-1.5 bg-[hsl(220_15%_14%)] text-gray-400 rounded-lg border border-[hsl(215_15%_22%)] hover:text-gray-300 transition-colors"
-          >
-            Details
-          </button>
-        </div>
+        <button
+          onClick={() => navigate('/sky-check')}
+          className="text-xs px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-lg border border-blue-500/30 hover:bg-blue-500/30 transition-colors"
+        >
+          Log Conditions →
+        </button>
       </div>
     </div>
   )
