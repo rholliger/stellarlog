@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { getBestTonight, getTonightAstronomy, getForecast, getWeather } from '@/lib/api'
 import { useLiveSky } from '@/hooks/useLiveSky'
-import { Moon, Cloud, Star, Eye, Wind, Thermometer, Droplets, Sparkles, ExternalLink, Clock } from 'lucide-react'
+import { Cloud, Star, Eye, Wind, Thermometer, Droplets, Sparkles, ExternalLink, Clock } from 'lucide-react'
 import { SkyCheckCardCompact } from '@/components/SkyCheckIntegration'
 import { VisibilityBar } from '@/components/VisibilityBar'
 import { EmptyState } from '@/components/EmptyState'
@@ -13,7 +13,20 @@ function formatSwissDate(dateStr: string): string {
   return `${d}.${m}.${y}`
 }
 
-function dsoWikiUrl(catalogId: string, name?: string): string {
+interface ForecastDay {
+  date: string
+  temp_min: number
+  temp_max: number
+  description: string
+  cloud_cover: number
+  wind_speed: number
+  humidity: number
+  dew_point?: number
+  icon: string
+  stargazing_score?: StargazingScore
+}
+
+function dsoWikiUrl(catalogId: string, _name?: string): string {
   const clean = catalogId.trim()
   
   // Caldwell objects
@@ -109,11 +122,11 @@ function LiveClock() {
   )
 }
 
-function ForecastRow({ 
-  day, 
+function ForecastRow({
+  day,
   isToday
-}: { 
-  day: any
+}: {
+  day: ForecastDay
   isToday: boolean
 }) {
   // Use pre-calculated score from backend
@@ -270,8 +283,6 @@ export default function TonightSky() {
     queryFn: getForecast,
   })
 
-  // Fetch moon phases for each forecast day
-  const forecastDays = forecast?.map((day: any) => day.date) || []
   
 
 
@@ -399,10 +410,10 @@ export default function TonightSky() {
             7-Day Stargazing Forecast
           </h2>
           <div className="bg-[hsl(220_15%_10%)] border border-[hsl(215_15%_18%)] rounded-xl px-2 sm:px-4 hover:border-[hsl(215_15%_22%)] transition-colors">
-            {forecast.filter(day => day.date > today).map(day => (
-              <ForecastRow 
-                key={day.date} 
-                day={day} 
+            {forecast.filter((day: ForecastDay) => day.date > today).map((day: ForecastDay) => (
+              <ForecastRow
+                key={day.date}
+                day={day}
                 isToday={false}
               />
             ))}

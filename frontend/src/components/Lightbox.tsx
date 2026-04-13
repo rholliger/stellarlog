@@ -19,11 +19,10 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
   const [showUI, setShowUI] = useState(true)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState(0)
-  const [direction, setDirection] = useState(0)
   
   const imageContainerRef = useRef<HTMLDivElement>(null)
   const touchStartX = useRef(0)
-  const uiTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const uiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Check if we should render - but DON'T return early (hooks must run)
   const shouldRender = isOpen && photos.length > 0
@@ -42,7 +41,6 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
 
   const goNext = useCallback(() => {
     if (!hasMultiple) return
-    setDirection(1)
     setCurrentIndex(i => (i + 1) % photos.length)
     setDragOffset(0)
     resetUITimer()
@@ -50,7 +48,6 @@ export function Lightbox({ photos, initialIndex, isOpen, onClose }: LightboxProp
 
   const goPrev = useCallback(() => {
     if (!hasMultiple) return
-    setDirection(-1)
     setCurrentIndex(i => (i - 1 + photos.length) % photos.length)
     setDragOffset(0)
     resetUITimer()

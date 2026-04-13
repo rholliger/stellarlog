@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { listObservations } from '@/lib/api'
 import { format } from 'date-fns'
-import { Moon, Cloud, Image, ChevronRight, Search, Telescope, Star, X } from 'lucide-react'
+import { Cloud, Image, ChevronRight, Search, Star, X } from 'lucide-react'
 import { EmptyState } from '@/components/EmptyState'
 import { ObservationCardSkeleton } from '@/components/Skeleton'
 

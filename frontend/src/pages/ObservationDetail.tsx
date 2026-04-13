@@ -5,7 +5,7 @@ import { getObservation, deleteObservation } from '@/lib/api'
 import { format } from 'date-fns'
 import {
   Moon, Cloud, Star, MapPin, Camera, Edit2, Trash2,
-  ArrowLeft, Image, Thermometer, Wind, Droplets, ExternalLink,
+  ArrowLeft, Image, Thermometer, Droplets, ExternalLink,
 } from 'lucide-react'
 import { useToast } from '@/components/Toast'
 import { Lightbox } from '@/components/Lightbox'

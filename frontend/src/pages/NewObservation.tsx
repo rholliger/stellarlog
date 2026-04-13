@@ -11,7 +11,7 @@ import { useToast } from '@/components/Toast'
 import { useDraft } from '@/hooks/useDraft'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import {
-  Mic, MicOff, Upload, X, Star, MapPin, Calendar,
+  Mic, MicOff, Upload, X, MapPin, Calendar,
   Moon as MoonIcon, Camera, Save, Loader2, RotateCcw,
 } from 'lucide-react'
 
@@ -192,7 +192,7 @@ function VoiceInput({ onTranscript }: { onTranscript: (text: string) => void }) 
   const [duration, setDuration] = useState(0)
   const mediaRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const startRecording = async () => {
     try {
@@ -369,7 +369,7 @@ export default function NewObservation() {
     gear: '',
   }
 
-  const { draft, setDraft, hasDraft, saveDraft, clearDraft } = useDraft(
+  const { draft, hasDraft, saveDraft, clearDraft } = useDraft(
     isEdit ? `edit-${id}` : 'new',
     initialForm
   )
@@ -437,12 +437,12 @@ export default function NewObservation() {
     saveMutation.mutate({
       date: form.date,
       time: form.time,
-      target_catalog_id: form.target_catalog_id || null,
+      target_catalog_id: form.target_catalog_id || undefined,
       target_name: form.target_name,
-      notes_text: form.notes_text || null,
+      notes_text: form.notes_text || undefined,
       seeing_rating: form.seeing_rating,
       location: form.location,
-      gear: form.gear || null,
+      gear: form.gear || undefined,
     })
   }
 

@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom'
-import { Telescope, List, Plus, Star, Cloud } from 'lucide-react'
+import { Telescope, List, Plus, Star } from 'lucide-react'
 import { ToastProvider } from './components/Toast'
 import ObservationsList from './pages/ObservationsList'
 import ObservationDetail from './pages/ObservationDetail'
