@@ -1,6 +1,6 @@
 """
 StellarLog — FastAPI backend
-Run: uvicorn app.main:app --reload --port 8000
+Run: uvicorn app.main:app --reload --port 8002
 """
 
 import os

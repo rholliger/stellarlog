@@ -13,11 +13,11 @@ export default defineConfig({
     allowedHosts: ['roy-oc.tail0568ff.ts.net'],
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:8002',
         changeOrigin: true,
       },
       '/photos': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:8002',
         changeOrigin: true,
       },
     },

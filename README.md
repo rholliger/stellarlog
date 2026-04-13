@@ -27,10 +27,10 @@ python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # add your API keys
 python -m app.seed_data  # seed Messier + Caldwell + NGC catalogs
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8002
 ```
 
-API docs: http://localhost:8000/docs
+API docs: http://localhost:8002/docs
 
 ### Frontend
 

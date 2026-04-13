@@ -14,7 +14,7 @@ pip install -r requirements.txt
 python -m app.seed_data
 
 # Run
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8002
 ```
 
 ## Environment
@@ -25,7 +25,7 @@ Copy `.env.example` to `.env` and add your API keys:
 
 ## API Docs
 
-Once running: http://localhost:8000/docs (Swagger UI)
+Once running: http://localhost:8002/docs (Swagger UI)
 
 ## Key Endpoints
 
@@ -44,7 +44,7 @@ Once running: http://localhost:8000/docs (Swagger UI)
 
 ```bash
 pip install -r requirements.txt
-pm2 start "uvicorn app.main:app --host 0.0.0.0 --port 8000" --name stellarlog
+pm2 start "uvicorn app.main:app --host 0.0.0.0 --port 8002" --name stellarlog
 pm2 save
 ```
 
