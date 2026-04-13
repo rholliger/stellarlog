@@ -210,7 +210,7 @@ def calculate_stargazing_score(weather: dict, moon_illumination: float, moon_alt
         reasons.append("Mostly cloudy")
     else:
         score -= 6
-        cloud_max_score = 3
+        cloud_max_score = 2  # Overcast: max "Very Poor"
         reasons.append("Overcast")
 
     # Wind (stability of atmosphere)
