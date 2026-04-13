@@ -298,9 +298,21 @@ def calculate_stargazing_score(weather: dict, moon_illumination: float, moon_alt
     # Clamp score and apply cloud cover hard gate
     score = max(0, min(cloud_max_score, score))
     
+    # Calculate stars to match verdicts exactly
+    if score >= 9:
+        stars = 5  # Excellent
+    elif score >= 7:
+        stars = 4  # Good
+    elif score >= 5:
+        stars = 3  # Fair
+    elif score >= 3:
+        stars = 2  # Poor
+    else:
+        stars = 1  # Very Poor
+    
     return {
         "score": score,
-        "stars": max(1, min(5, round(score / 2))),
+        "stars": stars,
         "reasons": reasons,
         "verdict": "Excellent" if score >= 9 else "Good" if score >= 7 else "Fair" if score >= 5 else "Poor" if score >= 3 else "Very Poor",
         "color": "text-green-400" if score >= 7 else "text-yellow-400" if score >= 5 else "text-orange-400" if score >= 3 else "text-red-400",
