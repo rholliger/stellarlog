@@ -178,7 +178,7 @@ async def get_astronomy_data(target_date: date) -> Optional[dict]:
 def calculate_stargazing_score(weather: dict, moon_illumination: float, moon_altitude_night: float = 0, moon_phase_name: str = None) -> dict:
     """
     Calculate a comprehensive stargazing score (0-10) based on:
-    - Cloud cover
+    - Cloud cover (hard gate - caps max score)
     - Wind speed
     - Humidity (transparency)
     - Moon illumination
@@ -188,22 +188,29 @@ def calculate_stargazing_score(weather: dict, moon_illumination: float, moon_alt
     score = 10
     reasons = []
 
-    # Cloud cover (major factor)
+    # Cloud cover - HARD GATE: caps the maximum possible score
     cloud_cover = weather.get("cloud_cover", 100)
+    cloud_max_score = 10  # Default max
+    
     if cloud_cover < 10:
         score += 3
+        cloud_max_score = 10
         reasons.append("Crystal clear")
     elif cloud_cover < 25:
         score += 2
+        cloud_max_score = 10
         reasons.append("Clear skies")
     elif cloud_cover < 50:
         score += 0
+        cloud_max_score = 8
         reasons.append("Patchy clouds")
     elif cloud_cover < 75:
         score -= 3
+        cloud_max_score = 5
         reasons.append("Mostly cloudy")
     else:
         score -= 6
+        cloud_max_score = 3
         reasons.append("Overcast")
 
     # Wind (stability of atmosphere)
@@ -288,8 +295,8 @@ def calculate_stargazing_score(weather: dict, moon_illumination: float, moon_alt
                 score -= 3
                 reasons.append("Full moon")
 
-    # Clamp score
-    score = max(0, min(10, score))
+    # Clamp score and apply cloud cover hard gate
+    score = max(0, min(cloud_max_score, score))
     
     return {
         "score": score,
