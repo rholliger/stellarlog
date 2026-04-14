@@ -53,7 +53,7 @@ function NavBar() {
 export default function App() {
   return (
     <ToastProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={import.meta.env.MODE === 'production' ? '/stellarlog' : '/'}>
         <div className="min-h-screen bg-[hsl(220_20%_6%)] text-gray-100 overflow-x-hidden">
           <NavBar />
           <main className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
